@@ -13,7 +13,6 @@
 #include <errno.h>
 #include <signal.h>
 
-
 int main(void)
 {
     //Start coding!
