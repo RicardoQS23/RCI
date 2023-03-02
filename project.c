@@ -68,5 +68,6 @@ int main(int argc, char *argv[])
             printf("Unknown Command!\n");
             exit(1);
     }
+    printf("ola");
     return 0;
 }
