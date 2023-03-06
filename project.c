@@ -15,8 +15,23 @@
 #include <errno.h>
 #include <signal.h>
 
-#define MAX_BUFFER_SIZE 516
+#define MAX_BUFFER_SIZE 248
 #define max(A, B) ((A)>=(B)? (A):(B))
+
+
+typedef struct NODE{
+    int fd;
+    char ip[16];
+    char port[6];
+    char id[3];
+}NODE;
+
+typedef struct AppNode{
+    NODE self;
+    NODE bck;
+    NODE ext;
+    NODE intr[99];
+}AppNode;
 
 enum commands{
     JOIN,
@@ -27,43 +42,43 @@ enum commands{
     LEAVE,
     EXIT
 };
+
 int compare_cmd(char *cmdLine);
 void udpClient(char *buffer, char *ip, char *port, char *net);
+int connectTcpClient(AppNode *app);
 void handleCommandLine(char **cmdLine);
 int validate_number(char *str);
 int validate_ip(char *ip);
 
 int main(int argc, char *argv[])
 {
-
+    AppNode app;
     enum commands cmd;
     int cmd_code = 0, counter, tk_counter;
-    char machineIP[16], tcpPort[6], regIP[16], regUDP[6];
+    char regIP[16], regUDP[6];
     char buffer[MAX_BUFFER_SIZE], *token;
 
-    fd_set rfds, inputs;
-    int newfd;
+    fd_set readSockets, currentSockets;
+    int newfd, clientFd;
     struct timeval timeout;
     char net[4], id[3], bootid[3], bootIP[16], bootTCP[6], name[MAX_BUFFER_SIZE], dest[3]; 
     /* Command line treatment*/
-    strcpy(machineIP, argv[1]);
-    strcpy(tcpPort, argv[2]);
+    strcpy(app.self.ip, argv[1]);
+    strcpy(app.self.port, argv[2]);
     strcpy(regIP, argv[3]);
     strcpy(regUDP, argv[4]);
-
     //handleCommandLine(argv);
-    printf("Size of fd_set: %ld\n",sizeof(fd_set));
-    printf("Value of FD_SETSIZE: %d\n",FD_SETSIZE);
-    
+    FD_ZERO(&currentSockets);    
     while(1)
     {
-        FD_SET(newfd, &inputs);
-        rfds=inputs;
+        FD_SET(newfd, &currentSockets);
+        readSockets = currentSockets;
 
         memset((void *)&timeout, 0, sizeof(timeout));
-        timeout.tv_sec = 10;
+        timeout.tv_sec = 15;
 
-        counter = select(newfd + 1, &rfds, (fd_set *) NULL, (fd_set *) NULL, (struct timeval *) &timeout);
+        counter = select(newfd + 1, &readSockets, (fd_set *) NULL, (fd_set *) NULL, (struct timeval *) &timeout);
+        printf("pixa\n");
         switch(counter)
         {
             case 0:
@@ -77,7 +92,7 @@ int main(int argc, char *argv[])
             default: 
                 for(;counter;){
 
-                    if(FD_ISSET(0, &rfds))
+                    if(FD_ISSET(0, &readSockets))
                     {   
                         fgets(buffer, sizeof(buffer), stdin);
                         //if(parseUserInput(buffer, &self_node) == 0)printf("Invalid Input\n");
@@ -97,7 +112,7 @@ int main(int argc, char *argv[])
                                             strcpy(net,token);
                                             break;
                                         case 1:
-                                            strcpy(id,token);
+                                            strcpy(app.self.id,token);
                                             break;
                                         default:
                                             break;
@@ -172,8 +187,27 @@ int main(int argc, char *argv[])
                         }
                         switch(cmd){
                             case JOIN:
-                                //DO STUFF ACCORDING TO THE COMMAND
-                                udpClient(buffer, regIP, regUDP, net);
+                                //Nodes's initialization
+
+                                memmove(&app.ext, &app.self, sizeof(NODE));
+                                memmove(&app.bck, &app.self, sizeof(NODE));
+
+                                udpClient(buffer, regIP, regUDP, net);  //gets net nodes
+                                printf("hey!\n");
+                                if(sscanf(buffer, "%*s %*s %s %s %s", app.ext.id, app.ext.ip, app.ext.port) == 3)
+                                {
+                                    memmove(&app.bck, &app.ext, sizeof(NODE));
+                                    if((clientFd = connectTcpClient(&app)) > 0)
+                                    {
+                                        FD_SET(clientFd, &currentSockets);  //sucessfully connected to ext node
+                                        printf("Connected to %s\n", app.ext.id);
+                                    }
+                                    else
+                                    {
+                                        printf("HERE!!\n");
+                                        memmove(&app.ext, &app.self, sizeof(NODE)); //couldnt connect to ext node
+                                    }   
+                                }
                                 break;
                             case DJOIN:
                                 //DO STUFF ACCORDING TO THE COMMAND
@@ -190,13 +224,17 @@ int main(int argc, char *argv[])
                             case EXIT:
                                 //DO STUFF ACCORDING TO THE COMMAND
                                 break;
+                            default:
+                                printf("dadsadad\n");
+                                break;
                         }
                     }
-                    /*else if(FD_ISSET(serverSocket,&rfds)){
+                    //recebo pedido de ligaçao atraves do listen
+                    /*else if(FD_ISSET(serverSocket,&readtSockets)){
                         newfd = greetNewNeighbour(serverSocket, &self_node);
                         counter--;
                     }
-                    else if (FD_ISSET(self_node.exterior.socket, &rfds))
+                    else if (FD_ISSET(self_node.exterior.socket, &readtSockets))
                     {
                         counter--;
                         //Handle exterior neighbour message
@@ -205,7 +243,7 @@ int main(int argc, char *argv[])
 
                         for(NODE *neighbour = self_node.neighbourList; neighbour != NULL; neighbour = neighbour->next)
                         {
-                            if(FD_ISSET(neighbour->socket, &rfds))
+                            if(FD_ISSET(neighbour->socket, &readtSockets))
                             {
                                 counter--;
                                 //handle interior neighbour message
@@ -219,6 +257,44 @@ int main(int argc, char *argv[])
     } 
     return 0;
 }
+
+int connectTcpClient(AppNode *app)
+{
+    int fd;
+    struct addrinfo hints, *res;
+    char buffer[128];
+
+    fd = socket(AF_INET, SOCK_STREAM, 0);
+    if(fd == -1)    return -1;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    if(getaddrinfo(app->ext.ip, app->ext.port, &hints, &res) != 0);
+    {
+        close(fd);
+        freeaddrinfo(res);
+        return -1;
+    }
+
+    if(connect(fd, res->ai_addr, res->ai_addrlen) < 0)
+    {
+        close(fd);
+        freeaddrinfo(res);
+        return -1;
+    }
+
+    sprintf(buffer, "NEW %s %s %s", app->self.id, app->self.ip, app->self.port);
+    if(write(fd, buffer, strlen(buffer)) < 0)
+    {
+        close(fd);
+        freeaddrinfo(res);
+        return -1;
+    }
+    return fd;
+}
+
 
 
 void udpClient(char *buffer, char *ip, char *port, char *net)
@@ -357,18 +433,18 @@ int main(void)
 {
     char buffer[128];
 
-    fd_set inputs, testfds;
+    fd_set currenttSockets, testfds;
     struct timeval timeout;
 
     int i,out_fds,n,errcode;
 
-    FD_ZERO(&inputs); // Clear inputs
-    FD_SET(0,&inputs); // Set standard input channel on
+    FD_ZERO(&currenttSockets); // Clear currenttSockets
+    FD_SET(0,&currenttSockets); // Set standard input channel on
     printf("Size of fd_set: %ld\n",sizeof(fd_set));
     printf("Value of FD_SETSIZE: %d\n",FD_SETSIZE);
     while(1)
     {
-        testfds=inputs;
+        testfds=currenttSockets;
 //        printf("testfds byte: %d\n",((char *)&testfds)[0]);
         memset((void *)&timeout,0,sizeof(timeout));
         timeout.tv_sec=3;
