@@ -106,10 +106,9 @@ int main(int argc, char *argv[])
     {
         readSockets = currentSockets;
         memset((void *)&timeout, 0, sizeof(timeout));
-        timeout.tv_sec = 20;
+        timeout.tv_sec = 50;
 
         counter = select(FD_SETSIZE, &readSockets, (fd_set *)NULL, (fd_set *)NULL, (struct timeval *)&timeout);
-        printf("counter : %d\n", counter);
         switch (counter)
         {
         case 0:
@@ -143,7 +142,7 @@ int main(int argc, char *argv[])
                         udpClient(buffer, regIP, regUDP, net); // gets net nodes
                         if (sscanf(buffer, "%*s %*s %s %s %s", app.ext.id, app.ext.ip, app.ext.port) == 3)
                         {
-                            memmove(&app.bck, &app.ext, sizeof(NODE));
+                            //memmove(&app.bck, &app.ext, sizeof(NODE));
                             if ((app.ext.fd = connectTcpClient(&app)) > 0) // join network by connecting to another node
                             {
                                 memset(&buffer, 0, MAX_BUFFER_SIZE);
@@ -155,7 +154,6 @@ int main(int argc, char *argv[])
                                     exit(1);
                                 }
                                 // adicionar externo aos vizinhos
-                                
                                 memset(&buffer, 0, MAX_BUFFER_SIZE);
                                 sprintf(buffer, "REG %s %s %s %s\n", net, app.self.id, app.self.ip, app.self.port);
                                 printf("sent: %s\n", buffer);
@@ -187,7 +185,7 @@ int main(int argc, char *argv[])
                         strcpy(app.ext.id, bootid);
                         strcpy(app.ext.ip, bootIP);
                         strcpy(app.ext.port, bootTCP);
-                        memmove(&app.bck, &app.ext, sizeof(NODE));
+                        //memmove(&app.bck, &app.ext, sizeof(NODE));
 
                         if ((app.ext.fd = connectTcpClient(&app)) > 0) // join network by connecting to another node
                         {
@@ -205,8 +203,8 @@ int main(int argc, char *argv[])
                             printf("sent: %s\n", buffer);
                             udpClient(buffer, regIP, regUDP, net);
                             FD_SET(app.self.fd, &currentSockets);
-
                             FD_SET(app.ext.fd, &currentSockets); // sucessfully connected to ext node
+                            
                         }
                         else
                         {
@@ -215,16 +213,15 @@ int main(int argc, char *argv[])
                         }
                         break;
                     case SHOW:
-                        printf("My info: \n");
+                        printf("---- Self info ----\n");
                         printf("%s %s %s\n", app.self.id, app.self.ip, app.self.port);
-                        printf("Ext info: \n");
+                        printf("---- Extern info ----\n");
                         printf("%s %s %s\n", app.ext.id, app.ext.ip, app.ext.port);
-                        printf("Bck info: \n");
+                        printf("---- Backup info ----\n");
                         printf("%s %s %s\n", app.bck.id, app.bck.ip, app.bck.port);
-                        printf("interns info: \n");
+                        printf("---- Interns info ----\n");
                         for (int i = 0; i < app.interns.numIntr; i++)
                             printf("%s %s %s\n", app.interns.intr[i].id, app.interns.intr[i].ip, app.interns.intr[i].port);
-
                         break;
                     case LEAVE:
                         memset(&buffer, 0, MAX_BUFFER_SIZE);
@@ -277,10 +274,6 @@ int main(int argc, char *argv[])
                                 printf("wrong formated answer!\n");
                                 exit(1);
                             }
-                            printf("ext id: %s\n", app.ext.id);
-                            printf("ext ip: %s\n", app.ext.ip);
-                            printf("ext port: %s\n", app.ext.port);
-
                             // TODO tratar da resposta no buffer
                             memset(&buffer, 0, MAX_BUFFER_SIZE);
                             sprintf(buffer, "EXTERN %s %s %s\n", app.ext.id, app.ext.ip, app.ext.port);
@@ -491,7 +484,6 @@ int openTcpServer(AppNode *app)
 
     if (getaddrinfo(NULL, app->self.port, &hints, &res) != 0)
     {
-        printf("CAGA1\n");
         close(fd);
         freeaddrinfo(res);
         return -1;
@@ -721,7 +713,6 @@ int handleUserInput(enum commands *cmd, char *buffer, char *bootIP, char *name, 
         if ((token = strtok(NULL, " \n\t\r")) == NULL)
             return -1;
         strcpy(bootTCP, token);
-        printf("string: %s length: %ld\n", bootTCP, strlen(bootTCP));
         if (strlen(bootTCP) != 5)
             return -1;
 
@@ -762,6 +753,7 @@ int handleUserInput(enum commands *cmd, char *buffer, char *bootIP, char *name, 
         *cmd = SHOW;
         break;
     default:
+        *cmd = -1;
         printf("Unknown Command\n");
         break;
     }
