@@ -15,7 +15,7 @@
 #include <errno.h>
 #include <signal.h>
 
-#define MAX_BUFFER_SIZE 512
+#define MAX_BUFFER_SIZE 248
 
 typedef struct NODE
 {
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
     // TODO perceber como é q os diferentes nós se voltam a ligar aos backups
     // TODO tratar do userInput do DJOIN
     //./cot 127.0.0.1 59009 193.136.138.142 59000
-    // djoin 008 05 02 127.0.0.1 56003
+    // djoin 008 05 03 127.0.0.1 56001
 
     // IP = 127.0.0.1
     // TCP = 59001
@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
     char regIP[16], regUDP[6];
     char buffer[MAX_BUFFER_SIZE], net[4], name[16], dest[16], bootIP[16], bootid[3], bootTCP[6];
     fd_set readSockets, currentSockets;
-    int newfd, counter;
+    int counter = 0;
     struct timeval timeout;
     enum commands cmd;
 
@@ -87,11 +87,12 @@ int main(int argc, char *argv[])
         printf("wrong inputs ./cot [IP] [TCP] [regIP] [regUDP]\n");
         exit(1);
     }
+    memset(&app, 0, sizeof(struct AppNode));
+    memset(&buffer, 0, MAX_BUFFER_SIZE);
     strcpy(app.self.ip, argv[1]);
     strcpy(app.self.port, argv[2]);
     strcpy(regIP, argv[3]);
     strcpy(regUDP, argv[4]);
-    app.interns.numIntr = 0;
 
     if ((app.self.fd = openTcpServer(&app)) < 0)
     {
@@ -108,7 +109,7 @@ int main(int argc, char *argv[])
         timeout.tv_sec = 20;
 
         counter = select(FD_SETSIZE, &readSockets, (fd_set *)NULL, (fd_set *)NULL, (struct timeval *)&timeout);
-
+        printf("counter : %d\n", counter);
         switch (counter)
         {
         case 0:
@@ -124,6 +125,7 @@ int main(int argc, char *argv[])
             {
                 if (FD_ISSET(0, &readSockets))
                 {
+                    FD_CLR(0, &readSockets);
                     fgets(buffer, MAX_BUFFER_SIZE, stdin);
                     if (handleUserInput(&cmd, buffer, bootIP, name, dest, bootid, bootTCP, net, &app) < 0)
                     {
@@ -136,6 +138,7 @@ int main(int argc, char *argv[])
                         // Nodes's initialization
                         memmove(&app.ext, &app.self, sizeof(NODE));
                         memmove(&app.bck, &app.self, sizeof(NODE));
+                        memset(&buffer, 0, MAX_BUFFER_SIZE);
                         sprintf(buffer, "NODES %s", net);
                         udpClient(buffer, regIP, regUDP, net); // gets net nodes
                         if (sscanf(buffer, "%*s %*s %s %s %s", app.ext.id, app.ext.ip, app.ext.port) == 3)
@@ -143,6 +146,7 @@ int main(int argc, char *argv[])
                             memmove(&app.bck, &app.ext, sizeof(NODE));
                             if ((app.ext.fd = connectTcpClient(&app)) > 0) // join network by connecting to another node
                             {
+                                memset(&buffer, 0, MAX_BUFFER_SIZE);
                                 sprintf(buffer, "NEW %s %s %s\n", app.self.id, app.self.ip, app.self.port);
                                 printf("sent: %s\n", buffer);
                                 if (writeTcp(app.ext.fd, &app, buffer) < 0)
@@ -151,19 +155,8 @@ int main(int argc, char *argv[])
                                     exit(1);
                                 }
                                 // adicionar externo aos vizinhos
-                                if (readTcp(app.ext.fd, &app, buffer) < 0)
-                                {
-                                    printf("Can't read when I'm trying to connect\n");
-                                    exit(1);
-                                }
-                                printf("recv: %s\n", buffer);
-                                if (sscanf(buffer, "EXTERN %s %s %s\n", app.bck.id, app.bck.ip, app.bck.port) != 3)
-                                {
-                                    printf("Bad response from server\n");
-                                }
-                                if (strcmp(app.bck.id, app.self.id) == 0)
-                                    memmove(&app.bck, &app.self, sizeof(NODE));
-
+                                
+                                memset(&buffer, 0, MAX_BUFFER_SIZE);
                                 sprintf(buffer, "REG %s %s %s %s\n", net, app.self.id, app.self.ip, app.self.port);
                                 printf("sent: %s\n", buffer);
                                 udpClient(buffer, regIP, regUDP, net);
@@ -180,6 +173,7 @@ int main(int argc, char *argv[])
                         else
                         {
                             // rede vazia
+                            memset(&buffer, 0, MAX_BUFFER_SIZE);
                             sprintf(buffer, "REG %s %s %s %s\n", net, app.self.id, app.self.ip, app.self.port);
                             printf("sent: %s\n", buffer);
                             udpClient(buffer, regIP, regUDP, net);
@@ -190,15 +184,14 @@ int main(int argc, char *argv[])
                         // Nodes's initialization
                         memmove(&app.ext, &app.self, sizeof(NODE));
                         memmove(&app.bck, &app.self, sizeof(NODE));
-
                         strcpy(app.ext.id, bootid);
                         strcpy(app.ext.ip, bootIP);
                         strcpy(app.ext.port, bootTCP);
+                        memmove(&app.bck, &app.ext, sizeof(NODE));
 
-                        // memmove(&app.bck, &app.ext, sizeof(NODE));
                         if ((app.ext.fd = connectTcpClient(&app)) > 0) // join network by connecting to another node
                         {
-                            printf("hey11\n");
+                            memset(&buffer, 0, MAX_BUFFER_SIZE);
                             sprintf(buffer, "NEW %s %s %s\n", app.self.id, app.self.ip, app.self.port);
                             printf("sent: %s\n", buffer);
                             if (writeTcp(app.ext.fd, &app, buffer) < 0)
@@ -206,19 +199,8 @@ int main(int argc, char *argv[])
                                 printf("Can't write when I'm trying to connect\n");
                                 exit(1);
                             }
-                            if (readTcp(app.ext.fd, &app, buffer) < 0)
-                            {
-                                printf("Can't read when I'm trying to connect\n");
-                                exit(1);
-                            }
-                            if (sscanf(buffer, "EXTERN %s %s %s\n", app.bck.id, app.bck.ip, app.bck.port) != 3)
-                            {
-                                printf("Bad response from server\n");
-                            }
-                            printf("recv: %s\n", buffer);
-                            if (strcmp(app.bck.id, app.self.id) == 0)
-                                memmove(&app.bck, &app.self, sizeof(NODE)); // There's only one node on the network, therefore I'm my own bck
 
+                            memset(&buffer, 0, MAX_BUFFER_SIZE);
                             sprintf(buffer, "REG %s %s %s %s\n", net, app.self.id, app.self.ip, app.self.port);
                             printf("sent: %s\n", buffer);
                             udpClient(buffer, regIP, regUDP, net);
@@ -245,19 +227,30 @@ int main(int argc, char *argv[])
 
                         break;
                     case LEAVE:
-                        // Closing sockets sockets
-                        close(app.ext.fd);
-                        printf("%d\n", app.interns.numIntr);
-                        if (app.interns.numIntr > 0)
-                        {
-                            for (int i = 0; i < app.interns.numIntr; i++)
-                                close(app.interns.intr[app.interns.numIntr].fd);
-                        }
+                        memset(&buffer, 0, MAX_BUFFER_SIZE);
                         sprintf(buffer, "UNREG %s %s", net, app.self.id);
                         printf("sent: %s\n", buffer);
                         udpClient(buffer, regIP, regUDP, net);
+                        // Closing sockets
+                        if (strcmp(app.ext.id, app.self.id) != 0)   //has extern
+                        {
+                            FD_CLR(app.ext.fd, &currentSockets);
+                            close(app.ext.fd);
+                        }
+                        if (app.interns.numIntr > 0)
+                        {
+                            for (int i = 0; i < app.interns.numIntr; i++)
+                            {
+                                FD_CLR(app.interns.intr[i].fd, &currentSockets);
+                                close(app.interns.intr[i].fd);
+                            }
+                            app.interns.numIntr = 0;
+                        }
+                        memmove(&app.ext, &app.self,sizeof(NODE));
+                        memmove(&app.bck, &app.self,sizeof(NODE));
                         break;
                     case EXIT:
+                        FD_CLR(app.self.fd, &currentSockets);
                         close(app.self.fd);
                         return 0;
                     default:
@@ -268,6 +261,7 @@ int main(int argc, char *argv[])
                 }
                 else if (FD_ISSET(app.self.fd, &readSockets))
                 {
+                    FD_CLR(app.self.fd, &readSockets);
                     printf("Someone is trying to connect!\n");
                     if (strcmp(app.self.id, app.ext.id) == 0) // still alone in network
                     {
@@ -288,7 +282,7 @@ int main(int argc, char *argv[])
                             printf("ext port: %s\n", app.ext.port);
 
                             // TODO tratar da resposta no buffer
-
+                            memset(&buffer, 0, MAX_BUFFER_SIZE);
                             sprintf(buffer, "EXTERN %s %s %s\n", app.ext.id, app.ext.ip, app.ext.port);
                             printf("sent: %s\n", buffer);
                             if (writeTcp(app.ext.fd, &app, buffer) < 0)
@@ -317,6 +311,7 @@ int main(int argc, char *argv[])
                                 printf("wrong format\n");
                                 exit(1);
                             }
+                            memset(&buffer, 0, MAX_BUFFER_SIZE);
                             sprintf(buffer, "EXTERN %s %s %s\n", app.ext.id, app.ext.ip, app.ext.port);
                             printf("sent: %s\n", buffer);
                             if (writeTcp(app.interns.intr[app.interns.numIntr].fd, &app, buffer) < 0)
@@ -336,6 +331,7 @@ int main(int argc, char *argv[])
                 }
                 else if (FD_ISSET(app.ext.fd, &readSockets)) // ext talks with us
                 {
+                    FD_CLR(app.ext.fd, &readSockets);
                     if (readTcp(app.ext.fd, &app, buffer) < 0) // conexao fechou e temos de estabelecer nova
                     {
                         printf("Connection with ext was closed\n");
@@ -344,10 +340,13 @@ int main(int argc, char *argv[])
                             if (app.interns.numIntr > 0) // escolhe um dos internos para ser o seu novo externo
                             {
                                 // promove interno a externo e retira-o da lista de internos
+                                FD_CLR(app.ext.fd, &currentSockets);
                                 memmove(&app.ext, &app.interns.intr[0], sizeof(NODE));
-                                memmove(&app.interns.intr[0], &app.interns.intr[app.interns.numIntr], sizeof(NODE));
+                                memmove(&app.interns.intr[0], &app.interns.intr[app.interns.numIntr - 1], sizeof(NODE));
+                                memset(&app.interns.intr[app.interns.numIntr - 1], 0, sizeof(NODE));
                                 app.interns.numIntr--;
 
+                                memset(&buffer, 0, MAX_BUFFER_SIZE);
                                 sprintf(buffer, "EXTERN %s %s %s\n", app.ext.id, app.ext.ip, app.ext.port);
                                 if (writeTcp(app.ext.fd, &app, buffer) < 0)
                                 {
@@ -365,6 +364,8 @@ int main(int argc, char *argv[])
                             }
                             else // ficou sozinho na rede
                             {
+                                FD_CLR(app.ext.fd, &currentSockets);
+                                close(app.ext.fd);
                                 memmove(&app.ext, &app.self, sizeof(NODE));
                             }
                         }
@@ -378,6 +379,7 @@ int main(int argc, char *argv[])
                             if ((app.ext.fd = connectTcpClient(&app)) > 0) // join network by connecting to another node
                             {
                                 FD_SET(app.ext.fd, &currentSockets); // sucessfully connected to ext node
+                                memset(&buffer, 0, MAX_BUFFER_SIZE);
                                 sprintf(buffer, "NEW %s %s %s\n", app.self.id, app.self.ip, app.self.port);
                                 printf("sent: %s\n", buffer);
                                 if (writeTcp(app.ext.fd, &app, buffer) < 0)
@@ -387,6 +389,7 @@ int main(int argc, char *argv[])
                                 }
                                 if (app.interns.numIntr > 0) // tem nos intr e comunica com todos para atualizar os seus nos de backup
                                 {
+                                    memset(&buffer, 0, MAX_BUFFER_SIZE);
                                     sprintf(buffer, "EXTERN %s %s %s\n", app.ext.id, app.ext.ip, app.ext.port);
                                     for (int i = 0; i < app.interns.numIntr; i++)
                                     {
@@ -408,17 +411,11 @@ int main(int argc, char *argv[])
                     else
                     {
                         printf("Extern is talking with us...\n");
-                        if (readTcp(app.ext.fd, &app, buffer) < 0)
-                        {
-                            printf("Can't read when I'm trying to connect\n");
-                            exit(1);
-                        }
                         printf("recv: %s\n", buffer);
                         if (sscanf(buffer, "EXTERN %s %s %s\n", app.bck.id, app.bck.ip, app.bck.port) != 3)
                         {
                             printf("Bad response from server\n");
                         }
-                        printf("reading data...\n");
                         if (strcmp(app.bck.id, app.self.id) == 0)
                             memmove(&app.bck, &app.self, sizeof(NODE));
                     }
@@ -426,13 +423,16 @@ int main(int argc, char *argv[])
                 }
                 else
                 {
-                    for (int i = 0; i < app.interns.numIntr; i++)
+                    for (int i = app.interns.numIntr - 1; i >= 0; i--)
                     {
                         if (FD_ISSET(app.interns.intr[i].fd, &readSockets))
                         {
+                            FD_CLR(app.interns.intr[i].fd, &readSockets);
                             if (readTcp(app.interns.intr[i].fd, &app, buffer) < 0)
                             {
-                                memmove(&app.interns.intr[i], &app.interns.intr[app.interns.numIntr], sizeof(NODE));
+                                FD_CLR(app.interns.intr[i].fd, &currentSockets);
+                                close(app.interns.intr[i].fd);
+                                memmove(&app.interns.intr[i], &app.interns.intr[app.interns.numIntr - 1], sizeof(NODE));
                                 app.interns.numIntr--;
                             }
                             counter--;
@@ -442,7 +442,6 @@ int main(int argc, char *argv[])
             }
         }
     }
-    return 0;
 }
 
 int connectTcpClient(AppNode *app)
@@ -523,7 +522,6 @@ int readTcp(int fd, AppNode *app, char *buffer)
     {
         strcat(buffer, buffer_cpy);
     }
-    printf("buffer: %s\n", buffer);
 
     if (n == 0 && strlen(buffer) == 0 || n == -1)
     {
@@ -682,14 +680,14 @@ int handleUserInput(enum commands *cmd, char *buffer, char *bootIP, char *name, 
     case 0: // Join
         *cmd = JOIN;
 
-        if ((token = strtok(NULL, " ")) == NULL)
+        if ((token = strtok(NULL, " \n\r\t")) == NULL)
             return -1;
 
         if (strlen(token) != 3 && ((atoi(token) > 100) || atoi(token) < 0))
             return -1;
         strcpy(net, token);
 
-        if ((token = strtok(NULL, " ")) == NULL)
+        if ((token = strtok(NULL, " \n\r\t")) == NULL)
             return -1;
 
         if (strlen(token) != 2 && ((atoi(token) > 99) || atoi(token) < 0))
@@ -698,25 +696,25 @@ int handleUserInput(enum commands *cmd, char *buffer, char *bootIP, char *name, 
         break;
     case 1: // Djoin
         *cmd = DJOIN;
-        if ((token = strtok(NULL, " ")) == NULL)
+        if ((token = strtok(NULL, " \n\r\t")) == NULL)
             return -1;
         if (strlen(token) != 3 && ((atoi(token) > 100) || atoi(token) < 0))
             return -1;
         strcpy(net, token);
 
-        if ((token = strtok(NULL, " ")) == NULL)
+        if ((token = strtok(NULL, " \n\r\t")) == NULL)
             return -1;
         if (strlen(token) != 2 && ((atoi(token) > 99) || atoi(token) < 0))
             return -1;
         strcpy(app->self.id, token);
 
-        if ((token = strtok(NULL, " ")) == NULL)
+        if ((token = strtok(NULL, " \n\r\t")) == NULL)
             return -1;
         if (strlen(token) != 2 && ((atoi(token) > 100) || atoi(token) < 0))
             return -1;
         strcpy(bootid, token);
 
-        if ((token = strtok(NULL, " ")) == NULL)
+        if ((token = strtok(NULL, " \n\r\t")) == NULL)
             return -1;
         strcpy(bootIP, token);
 
@@ -732,23 +730,23 @@ int handleUserInput(enum commands *cmd, char *buffer, char *bootIP, char *name, 
         break;
     case 2:
         *cmd = CREATE;
-        if ((token = strtok(NULL, " ")) == NULL)
+        if ((token = strtok(NULL, " \n\r\t")) == NULL)
             return -1;
         strcpy(name, token); // Adcionar campo name à struct???
         break;
     case 3:
         *cmd = DELETE;
-        if ((token = strtok(NULL, " ")) == NULL)
+        if ((token = strtok(NULL, " \n\r\t")) == NULL)
             return -1;
         strcpy(name, token); // Adcionar campo name à struct???
         break;
     case 4:
         *cmd = GET;
-        if ((token = strtok(NULL, " ")) == NULL)
+        if ((token = strtok(NULL, " \n\r\t")) == NULL)
             return -1;
 
         strcpy(dest, token);
-        if ((token = strtok(NULL, " ")) == NULL)
+        if ((token = strtok(NULL, " \n\r\t")) == NULL)
             return -1;
 
         strcpy(name, token);
