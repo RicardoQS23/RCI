@@ -19,7 +19,7 @@
 
 typedef struct LinkedList
 {
-    char contentName[101];
+    char contentName[100];
     struct LinkedList *next;
 } LinkedList;
 
@@ -56,7 +56,7 @@ typedef struct AppNode
     NODE bck;
     NODE ext;
     INTR interns;
-    ExpeditionTable expeditionTable[99];
+    ExpeditionTable expeditionTable[100];
 } AppNode;
 
 enum commands
@@ -96,6 +96,7 @@ int searchContentOnList(AppNode *app, char *name);
 void freeContentList(AppNode *app);
 
 void updateExpeditionTable(AppNode *app, char *dest_id, char *neigh_id, int neigh_fd);
+void clearExpeditionTable(AppNode *app);
 
 void udpClient(char *buffer, char *ip, char *port, char *net);
 void regNetwork(AppNode *app, char *buffer, fd_set *currentSockets, char *regIP, char *regUDP, char *net);
@@ -132,7 +133,9 @@ void handleExtInterruption(AppNode *app, char *buffer, fd_set *readSockets, fd_s
 void handleEXTmessage(AppNode *app, char *cmd, char *token);
 void handleQUERYmessage(AppNode *app, NODE node, char *cmd, char *token);
 void shareQUERYmessages(AppNode *app, NODE node, char *buffer, char *dest_id);
-void handleCONTENTmessage(AppNode *app, char *cmd, char *buffer);
+void handleCONTENTmessage(AppNode *app, NODE node, char *cmd, char *token);
+void handleWITHDRAWmessage(AppNode *app, NODE node, char *cmd, char *buffer);
+void shareWITHDRAWmessages(AppNode *app, NODE node, char *buffer);
 
 int main(int argc, char *argv[])
 {
@@ -196,11 +199,27 @@ void cleanQueue(NodeQueue *queue, fd_set *currentSockets)
 
 void closedIntConnection(AppNode *app, fd_set *currentSockets, int i)
 {
+    char buffer[MAX_BUFFER_SIZE] = "\0";
     FD_CLR(app->interns.intr[i].fd, currentSockets);
     close(app->interns.intr[i].fd);
+
+    updateExpeditionTable(app, app->interns.intr[i].id, "-1", 0);
+    for (int i = 0; i < 100; i++)
+    {
+        if (strcmp(app->expeditionTable[i].id, app->interns.intr[i].id) == 0)
+            updateExpeditionTable(app, app->expeditionTable[i].id, "-1", 0);
+    }
+
+    sprintf(buffer, "WITHDRAW %s\n", app->interns.intr[i].id);
+    if (writeTcp(app->ext.fd, buffer) < 0)
+    {
+        printf("Can't send WITHDRAW msg to extern\n");
+    }
+
     memmove(&app->interns.intr[i], &app->interns.intr[app->interns.numIntr - 1], sizeof(NODE));
     memset(&app->interns.intr[app->interns.numIntr - 1], 0, sizeof(NODE));
     app->interns.numIntr--;
+    writeMessageToInterns(app, buffer);
 }
 void handleUserInputInterruption(AppNode *app, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP)
 {
@@ -311,6 +330,8 @@ void handleInternInterruptions(AppNode *app, fd_set *readSockets, fd_set *curren
             }
             else
             {
+                printf("Intern is talking with us...\n");
+                printf("recv: %s\n", buffer);
                 internCommunication(app, app->interns.intr[i], buffer);
             }
         }
@@ -347,6 +368,16 @@ void promoteInternToExtern(AppNode *app, char *buffer)
         exit(1);
     }
     writeMessageToInterns(app, buffer);
+}
+
+void clearExpeditionTable(AppNode *app)
+{
+    char id[3];
+    for (int i = 0; i < 100; i++)
+    {
+        sprintf(id, "%02d", i);
+        updateExpeditionTable(app, id, "-1", 0);
+    }
 }
 
 void writeMessageToInterns(AppNode *app, char *buffer)
@@ -397,6 +428,16 @@ void connectToBackup(AppNode *app, char *buffer, fd_set *currentSockets)
 
 void closedExtConnection(AppNode *app, char *buffer, fd_set *currentSockets)
 {
+    updateExpeditionTable(app, app->ext.id, "-1", 0);
+    for (int i = 0; i < 100; i++)
+    {
+        if (strcmp(app->expeditionTable[i].id, app->ext.id) == 0)
+            updateExpeditionTable(app, app->expeditionTable[i].id, "-1", 0);
+    }
+    memset(buffer, 0, MAX_BUFFER_SIZE);
+    sprintf(buffer, "WITHDRAW %s\n", app->ext.id);
+    writeMessageToInterns(app, buffer);
+
     if (strcmp(app->self.id, app->bck.id) == 0) // sou ancora
     {
         if (app->interns.numIntr > 0) // escolhe um dos internos para ser o seu novo externo
@@ -578,6 +619,29 @@ void handleQUERYmessage(AppNode *app, NODE node, char *cmd, char *token)
     }
 }
 
+void shareWITHDRAWmessages(AppNode *app, NODE node, char *buffer)
+{
+    if (strcmp(node.id, app->ext.id) != 0)
+    {
+        if (writeTcp(app->ext.fd, buffer) < 0)
+        {
+            printf("Can't write when sending queries\n");
+            exit(1);
+        }
+    }
+    for (int i = 0; i < app->interns.numIntr; i++)
+    {
+        if (strcmp(node.id, app->interns.intr[i].id) != 0)
+        {
+            if (writeTcp(app->interns.intr[i].fd, buffer) < 0)
+            {
+                printf("Can't write when sending queries\n");
+                exit(1);
+            }
+        }
+    }
+}
+
 void shareQUERYmessages(AppNode *app, NODE node, char *buffer, char *dest_id)
 {
     if (app->expeditionTable[atoi(dest_id)].fd == 0) // ainda n possui o no destino da tabela de expediçao
@@ -623,13 +687,34 @@ void externCommunication(AppNode *app, char *buffer)
         cmd[strcspn(cmd, " ")] = '\0';
         handleEXTmessage(app, cmd, token);
         handleQUERYmessage(app, app->ext, cmd, token);
-        handleCONTENTmessage(app, cmd, token);
+        handleCONTENTmessage(app, app->ext, cmd, token);
+        handleWITHDRAWmessage(app, app->ext, cmd, token);
         token = advancePointer(token);
         token = strtok(token, "\n");
     }
 }
 
-void handleCONTENTmessage(AppNode *app, char *cmd, char *token)
+void handleWITHDRAWmessage(AppNode *app, NODE node, char *cmd, char *token)
+{
+    char withdrawn_id[3];
+
+    if (strcmp(cmd, "WITHDRAW") == 0)
+    {
+        if (sscanf(token, "WITHDRAW %s", withdrawn_id) != 1)
+        {
+            printf("Cant read WITHDRAW msg\n");
+        }
+        updateExpeditionTable(app, withdrawn_id, "-1", 0);
+        for (int i = 0; i < 100; i++)
+        {
+            if (strcmp(app->expeditionTable[i].id, withdrawn_id) == 0)
+                updateExpeditionTable(app, app->expeditionTable[i].id, "-1", 0);
+        }
+        shareWITHDRAWmessages(app, node, token);
+    }
+}
+
+void handleCONTENTmessage(AppNode *app, NODE node, char *cmd, char *token)
 {
     char dest_id[3], orig_id[3], name[100];
     char buffer[MAX_BUFFER_SIZE] = "\0";
@@ -640,6 +725,7 @@ void handleCONTENTmessage(AppNode *app, char *cmd, char *token)
         {
             printf("Cant read CONTENT msg\n");
         }
+        updateExpeditionTable(app, orig_id, node.id, node.fd);
         if (strcmp(app->self.id, dest_id) == 0) // mensagem de content chegou ao destino
         {
             printf("%s is present on %s\n", name, orig_id);
@@ -660,6 +746,7 @@ void handleCONTENTmessage(AppNode *app, char *cmd, char *token)
         {
             printf("Cant read NOCONTENT msg\n");
         }
+        updateExpeditionTable(app, orig_id, node.id, node.fd);
         if (strcmp(app->self.id, dest_id) == 0) // mensagem de content chegou ao destino
         {
             printf("%s is not present on %s\n", name, orig_id);
@@ -686,7 +773,8 @@ void internCommunication(AppNode *app, NODE node, char *buffer)
         strcpy(cmd, token);
         cmd[strcspn(cmd, " ")] = '\0';
         handleQUERYmessage(app, node, cmd, token);
-        handleCONTENTmessage(app, cmd, token);
+        handleCONTENTmessage(app, node, cmd, token);
+        handleWITHDRAWmessage(app, node, cmd, token);
         token = advancePointer(token);
         token = strtok(token, "\n");
     }
@@ -694,6 +782,7 @@ void internCommunication(AppNode *app, NODE node, char *buffer)
 
 void leaveCommand(AppNode *app, char *buffer, fd_set *currentSockets, char *regIP, char *regUDP, char *net)
 {
+    clearExpeditionTable(app);
     unregNetwork(app, buffer, currentSockets, regIP, regUDP, net);
     // Closing sockets
     if (strcmp(app->ext.id, app->self.id) != 0) // has extern
@@ -955,7 +1044,7 @@ void showRoutingCommand(AppNode *app)
 {
     char id[3];
     printf("---- Expedition Table ----\n");
-    for (int i = 0; i < 99; i++)
+    for (int i = 0; i < 100; i++)
     {
         if (app->expeditionTable[i].fd > 0)
         {
@@ -1325,23 +1414,29 @@ int validateUserInput(enum commands *cmd, char *buffer, char *bootIP, char *name
         *cmd = CREATE;
         if ((token = strtok(NULL, " \n\r\t")) == NULL)
             return -1;
-        strcpy(name, token); // Adcionar campo name à struct???
+        if (strlen(token) > 100)
+            return -1;
+        strcpy(name, token);
         break;
     case 3:
         *cmd = DELETE;
         if ((token = strtok(NULL, " \n\r\t")) == NULL)
             return -1;
-        strcpy(name, token); // Adcionar campo name à struct???
+        if (strlen(token) > 100)
+            return -1;
+        strcpy(name, token);
         break;
     case 4:
         *cmd = GET;
         if ((token = strtok(NULL, " \n\r\t")) == NULL)
             return -1;
-
         strcpy(dest, token);
-        if ((token = strtok(NULL, " \n\r\t")) == NULL)
+
+        if (strcmp(app->self.id, dest) == 0)
             return -1;
 
+        if ((token = strtok(NULL, " \n\r\t")) == NULL)
+            return -1;
         strcpy(name, token);
         break;
     case 5:
@@ -1361,7 +1456,6 @@ int validateUserInput(enum commands *cmd, char *buffer, char *bootIP, char *name
         break;
     case 7:
         *cmd = EXIT;
-        exit(1);
         break;
     default:
         *cmd = -1;
