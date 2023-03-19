@@ -17,13 +17,26 @@
 
 #define MAX_BUFFER_SIZE 248
 
+typedef struct LinkedList
+{
+    char contentName[101];
+    struct LinkedList *next;
+} LinkedList;
+
 typedef struct NODE
 {
     int fd;
     char ip[16];
     char port[6];
     char id[3];
+    LinkedList *contentList;
 } NODE;
+
+typedef struct NodeQueue
+{
+    NODE queue[5];
+    int numNodesInQueue;
+} NodeQueue;
 
 typedef struct INTR
 {
@@ -31,12 +44,19 @@ typedef struct INTR
     int numIntr;
 } INTR;
 
+typedef struct ExpeditionTable
+{
+    int fd;
+    char id[3];
+} ExpeditionTable;
+
 typedef struct AppNode
 {
     NODE self;
     NODE bck;
     NODE ext;
     INTR interns;
+    ExpeditionTable expeditionTable[99];
 } AppNode;
 
 enum commands
@@ -44,58 +64,84 @@ enum commands
     JOIN,
     DJOIN,
     CREATE,
-    SHOW,
     DELETE,
     GET,
+    SHOW_NAMES,
+    SHOW_TOPOLOGY,
+    SHOW_ROUTING,
     LEAVE,
     EXIT
 };
 
-int compare_cmd(char *cmdLine);
-void udpClient(char *buffer, char *ip, char *port, char *net);
-int openTcpServer(AppNode *app);
-int acceptTcpServer(AppNode *app);
-int readTcp(int fd, AppNode *app, char *buffer);
-int writeTcp(int fd, AppNode *app, char *buffer);
-int connectTcpClient(AppNode *app);
+void commandMultiplexer(AppNode *app, char *buffer, enum commands cmd, fd_set *currentSockets, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP);
+void joinCommand(AppNode *app, fd_set *currentSockets, char *buffer, char *regIP, char *regUDP, char *net);
+void djoinCommand(AppNode *app, fd_set *currentSockets, char *buffer, char *bootID, char *bootIP, char *bootTCP);
+void leaveCommand(AppNode *app, char *buffer, fd_set *currentSockets, char *regIP, char *regUDP, char *net);
+void createCommand(AppNode *app, char *name);
+void deleteCommand(AppNode *app, char *name);
+void getCommand(AppNode *app, char *dest, char *name);
+void showTopologyCommand(AppNode *app);
+void showNamesCommand(AppNode *app);
+void showRoutingCommand(AppNode *app);
+
 int validateCommandLine(char **cmdLine);
 int validate_number(char *str);
 int validate_ip(char *ip);
 int validateUserInput(enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, AppNode *app);
-void init(AppNode *app, char *regIP, char *regUDP, char **argv);
-void commandMultiplexer(AppNode *app, char *buffer, enum commands cmd, fd_set *currentSockets, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP);
+int compare_cmd(char *cmdLine);
+char *advancePointer(char *token);
+void chooseRandomNodeToConnect(char *buffer);
+
+int searchContentOnList(AppNode *app, char *name);
+void freeContentList(AppNode *app);
+
+void updateExpeditionTable(AppNode *app, char *dest_id, char *neigh_id, int neigh_fd);
+
+void udpClient(char *buffer, char *ip, char *port, char *net);
 void regNetwork(AppNode *app, char *buffer, fd_set *currentSockets, char *regIP, char *regUDP, char *net);
 void unregNetwork(AppNode *app, char *buffer, fd_set *currentSockets, char *regIP, char *regUDP, char *net);
-void joinCommand(AppNode *app, fd_set *currentSockets, char *buffer, char *regIP, char *regUDP, char *net);
-void djoinCommand(AppNode *app, fd_set *currentSockets, char *buffer, char *bootID, char *bootIP, char *bootTCP);
-void leaveCommand(AppNode *app, char *buffer, fd_set *currentSockets, char *regIP, char *regUDP, char *net);
-void showTopologyCommand(AppNode *app);
-void acceptNeighbourConnection(AppNode *app, char *buffer, fd_set *currentSockets);
-void closedExtConnection(AppNode *app, char *buffer, fd_set *currentSockets);
-void closedIntConnection(AppNode *app, char *buffer, fd_set *currentSockets, int i);
-void promoteInternToExtern(AppNode *app, char *buffer);
-void writeMessageToInterns(AppNode *app, char *buffer);
-void externCommunication(AppNode *app, char *buffer);
-void acceptFirstConnection(AppNode *app, char *buffer, fd_set *currentSockets);
-void acceptFollowingConnections(AppNode *app, char *buffer, fd_set *currentSockets);
-void acceptNeighbourConnection(AppNode *app, char *buffer, fd_set *currentSockets);
+
+int openTcpServer(AppNode *app);
+int acceptTcpServer(AppNode *app);
+void acceptNeighbourConnection(AppNode *app, NodeQueue *queue, fd_set *currentSockets);
+// void acceptFirstConnection(AppNode *app, char *buffer, fd_set *currentSockets);
+// void acceptFollowingConnections(AppNode *app, char *buffer, fd_set *currentSockets);
+int connectTcpClient(AppNode *app);
 void connectToBackup(AppNode *app, char *buffer, fd_set *currentSockets);
-void handleInterruptions(AppNode *app, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, int counter);
+void closedExtConnection(AppNode *app, char *buffer, fd_set *currentSockets);
+void closedIntConnection(AppNode *app, fd_set *currentSockets, int i);
+void promoteInternToExtern(AppNode *app, char *buffer);
+void externCommunication(AppNode *app, char *buffer);
+void internCommunication(AppNode *app, NODE node, char *buffer);
+void writeMessageToInterns(AppNode *app, char *buffer);
+int writeTcp(int fd, char *buffer);
+int readTcp(int fd, char *buffer);
 
+void cleanQueue(NodeQueue *queue, fd_set *currentSockets);
+void popQueue(NodeQueue *queue, fd_set *currentSockets, int pos);
+void promoteQueueToIntern(AppNode *app, NodeQueue *queue, fd_set *currentSockets, int pos);
 
+void init(AppNode *app, NodeQueue *queue, char *regIP, char *regUDP, char **argv);
+void handleInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP);
+void handleQueueInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets, char *buffer);
+void handleInternInterruptions(AppNode *app, fd_set *readSockets, fd_set *currentSockets, char *buffer);
+void handleUserInputInterruption(AppNode *app, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP);
+void handleServerInterruption(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets);
+void handleExtInterruption(AppNode *app, char *buffer, fd_set *readSockets, fd_set *currentSockets);
+
+void handleEXTmessage(AppNode *app, char *cmd, char *token);
+void handleQUERYmessage(AppNode *app, NODE node, char *cmd, char *token);
+void shareQUERYmessages(AppNode *app, NODE node, char *buffer, char *dest_id);
+void handleCONTENTmessage(AppNode *app, char *cmd, char *buffer);
 
 int main(int argc, char *argv[])
 {
-    //./cot 127.0.0.1 59009 193.136.138.142 59000
     //./cot 172.26.180.206 59002 193.136.138.142 59000
-    // djoin 008 11 08 127.0.0.1 59008
+    //./cot 127.0.0.1 59009 193.136.138.142 59000
     // djoin 008 20 11 127.0.0.1 59011
 
-    // IP = 127.0.0.1
-    // TCP = 59001
-    // regIP = 193.136.138.142
-    // regUDP = 59000
     AppNode app;
+    NodeQueue queue;
     char regIP[16], regUDP[6];
     char buffer[MAX_BUFFER_SIZE] = "\0", net[4], name[16], dest[16], bootIP[16], bootID[3], bootTCP[6];
     fd_set readSockets, currentSockets;
@@ -103,7 +149,7 @@ int main(int argc, char *argv[])
     struct timeval timeout;
     enum commands cmd;
 
-    init(&app, regIP, regUDP, argv);
+    init(&app, &queue, regIP, regUDP, argv);
     FD_ZERO(&currentSockets);
     FD_SET(0, &currentSockets);
 
@@ -117,7 +163,8 @@ int main(int argc, char *argv[])
         switch (counter)
         {
         case 0:
-            printf("running ...\n");
+            if (queue.numNodesInQueue > 0)
+                cleanQueue(&queue, &currentSockets);
             break;
 
         case -1:
@@ -125,79 +172,164 @@ int main(int argc, char *argv[])
             exit(1);
 
         default:
-            handleInterruptions(&app, &readSockets, &currentSockets, &cmd, buffer, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, counter);
+            handleInterruptions(&app, &queue, &readSockets, &currentSockets, &cmd, buffer, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP);
             break;
         }
+        counter = 0;
     }
 }
 
-void closedIntConnection(AppNode *app, char *buffer, fd_set *currentSockets, int i)
+char *advancePointer(char *token)
+{
+    return token + strlen(token) + 1;
+}
+
+void cleanQueue(NodeQueue *queue, fd_set *currentSockets)
+{
+    for (int i = queue->numNodesInQueue; i >= 0; i--)
+    {
+        FD_CLR(queue->queue[i].fd, currentSockets);
+        close(queue->queue[i].fd);
+    }
+    memset(&queue, 0, sizeof(NodeQueue));
+}
+
+void closedIntConnection(AppNode *app, fd_set *currentSockets, int i)
 {
     FD_CLR(app->interns.intr[i].fd, currentSockets);
     close(app->interns.intr[i].fd);
     memmove(&app->interns.intr[i], &app->interns.intr[app->interns.numIntr - 1], sizeof(NODE));
+    memset(&app->interns.intr[app->interns.numIntr - 1], 0, sizeof(NODE));
     app->interns.numIntr--;
 }
-
-void handleInterruptions(AppNode *app, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, int counter)
+void handleUserInputInterruption(AppNode *app, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP)
 {
-    for (; counter;)
+    if (FD_ISSET(0, readSockets))
     {
-        if (FD_ISSET(0, readSockets))
+        FD_CLR(0, readSockets);
+        fgets(buffer, MAX_BUFFER_SIZE, stdin);
+        if (validateUserInput(cmd, buffer, bootIP, name, dest, bootID, bootTCP, net, app) < 0)
         {
-            FD_CLR(0, readSockets);
-            fgets(buffer, MAX_BUFFER_SIZE, stdin);
-            if (validateUserInput(cmd, buffer, bootIP, name, dest, bootID, bootTCP, net, app) < 0)
-            {
-                printf("bad user input\n");
-                counter--;
-                continue;
-            }
-            commandMultiplexer(app, buffer, *cmd, currentSockets, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP);
-            counter--;
+            printf("bad user input\n");
+
+            return;
         }
-        else if (FD_ISSET(app->self.fd, readSockets))
+        commandMultiplexer(app, buffer, *cmd, currentSockets, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP);
+    }
+}
+void handleServerInterruption(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets)
+{
+    if (FD_ISSET(app->self.fd, readSockets))
+    {
+        printf("Someone is trying to connect!\n");
+        FD_CLR(app->self.fd, readSockets);
+        acceptNeighbourConnection(app, queue, currentSockets);
+    }
+}
+
+void handleExtInterruption(AppNode *app, char *buffer, fd_set *readSockets, fd_set *currentSockets)
+{
+    if (FD_ISSET(app->ext.fd, readSockets)) // ext talks with us
+    {
+        FD_CLR(app->ext.fd, readSockets);
+        if (readTcp(app->ext.fd, buffer) < 0) // conexao fechou e temos de estabelecer nova
         {
-            FD_CLR(app->self.fd, readSockets);
-            printf("Someone is trying to connect!\n");
-            acceptNeighbourConnection(app, buffer, currentSockets);
-            counter--;
-        }
-        else if (FD_ISSET(app->ext.fd, readSockets)) // ext talks with us
-        {
-            FD_CLR(app->ext.fd, readSockets);
-            if (readTcp(app->ext.fd, app, buffer) < 0) // conexao fechou e temos de estabelecer nova
-            {
-                printf("Extern's connection was closed\n");
-                closedExtConnection(app, buffer, currentSockets);
-            }
-            else
-            {
-                printf("Extern is talking with us...\n");
-                printf("recv: %s\n", buffer);
-                externCommunication(app, buffer);
-            }
-            counter--;
+            printf("Extern's connection was closed\n");
+            closedExtConnection(app, buffer, currentSockets);
         }
         else
         {
-            for (int i = app->interns.numIntr - 1; i >= 0; i--)
+            printf("Extern is talking with us...\n");
+            printf("recv: %s\n", buffer);
+            externCommunication(app, buffer);
+        }
+    }
+}
+
+void handleInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP)
+{
+    handleUserInputInterruption(app, readSockets, currentSockets, cmd, buffer, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP);
+    handleServerInterruption(app, queue, readSockets, currentSockets);
+    handleExtInterruption(app, buffer, readSockets, currentSockets);
+    handleInternInterruptions(app, readSockets, currentSockets, buffer);
+    handleQueueInterruptions(app, queue, readSockets, currentSockets, buffer);
+}
+
+void handleQueueInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets, char *buffer)
+{
+    for (int i = queue->numNodesInQueue - 1; i >= 0; i--)
+    {
+        if (FD_ISSET(queue->queue[i].fd, readSockets))
+        {
+            FD_CLR(queue->queue[i].fd, readSockets);
+            if (readTcp(queue->queue[i].fd, buffer) < 0)
             {
-                if (FD_ISSET(app->interns.intr[i].fd, readSockets))
+                FD_CLR(queue->queue[i].fd, currentSockets);
+                close(queue->queue[i].fd);
+                popQueue(queue, currentSockets, i);
+            }
+            else
+            {
+                printf("recv: %s\n", buffer);
+                // validate msg read
+                if (sscanf(buffer, "NEW %s %s %s\n", queue->queue[i].id, queue->queue[i].ip, queue->queue[i].port) != 3)
                 {
-                    FD_CLR(app->interns.intr[i].fd, readSockets);
-                    if (readTcp(app->interns.intr[i].fd, app, buffer) < 0)
+                    printf("wrong format\n");
+                    // TODO descartar nó malicioso da queue
+                    exit(1);
+                }
+
+                promoteQueueToIntern(app, queue, currentSockets, i);
+                if (strcmp(app->ext.id, app->self.id) == 0)
+                    promoteInternToExtern(app, buffer);
+                else
+                {
+                    memset(buffer, 0, MAX_BUFFER_SIZE);
+                    sprintf(buffer, "EXTERN %s %s %s\n", app->ext.id, app->ext.ip, app->ext.port);
+                    printf("sent: %s\n", buffer);
+                    if (writeTcp(app->interns.intr[app->interns.numIntr - 1].fd, buffer) < 0)
                     {
-                        closedIntConnection(app, buffer, currentSockets, i);
+                        printf("Can't write when someone is trying to connect\n");
+                        exit(1);
                     }
-                    else
-                    {
-                    }
-                    counter--;
                 }
             }
         }
     }
+}
+
+void handleInternInterruptions(AppNode *app, fd_set *readSockets, fd_set *currentSockets, char *buffer)
+{
+    for (int i = app->interns.numIntr - 1; i >= 0; i--)
+    {
+        if (FD_ISSET(app->interns.intr[i].fd, readSockets))
+        {
+            FD_CLR(app->interns.intr[i].fd, readSockets);
+            if (readTcp(app->interns.intr[i].fd, buffer) < 0)
+            {
+                closedIntConnection(app, currentSockets, i);
+            }
+            else
+            {
+                internCommunication(app, app->interns.intr[i], buffer);
+            }
+        }
+    }
+}
+
+void promoteQueueToIntern(AppNode *app, NodeQueue *queue, fd_set *currentSockets, int pos)
+{
+    app->interns.numIntr++;
+    memmove(&app->interns.intr[app->interns.numIntr - 1], &queue->queue[pos], sizeof(NODE));
+    popQueue(queue, currentSockets, pos);
+    updateExpeditionTable(app, app->interns.intr[app->interns.numIntr - 1].id, app->interns.intr[app->interns.numIntr - 1].id, app->interns.intr[app->interns.numIntr - 1].fd);
+}
+
+void popQueue(NodeQueue *queue, fd_set *currentSockets, int pos)
+{
+    memmove(&queue->queue[pos], &queue->queue[queue->numNodesInQueue - 1], sizeof(NODE));
+    memset(&queue->queue[queue->numNodesInQueue - 1], 0, sizeof(NODE));
+    queue->numNodesInQueue--;
 }
 
 void promoteInternToExtern(AppNode *app, char *buffer)
@@ -209,7 +341,7 @@ void promoteInternToExtern(AppNode *app, char *buffer)
 
     memset(buffer, 0, MAX_BUFFER_SIZE);
     sprintf(buffer, "EXTERN %s %s %s\n", app->ext.id, app->ext.ip, app->ext.port);
-    if (writeTcp(app->ext.fd, app, buffer) < 0)
+    if (writeTcp(app->ext.fd, buffer) < 0)
     {
         printf("Can't write when I'm trying to connect\n");
         exit(1);
@@ -221,7 +353,7 @@ void writeMessageToInterns(AppNode *app, char *buffer)
 {
     for (int i = 0; i < app->interns.numIntr; i++)
     {
-        if (writeTcp(app->interns.intr[i].fd, app, buffer) < 0)
+        if (writeTcp(app->interns.intr[i].fd, buffer) < 0)
         {
             printf("Can't write when I'm trying to connect\n");
             exit(1);
@@ -242,7 +374,7 @@ void connectToBackup(AppNode *app, char *buffer, fd_set *currentSockets)
         memset(buffer, 0, MAX_BUFFER_SIZE);
         sprintf(buffer, "NEW %s %s %s\n", app->self.id, app->self.ip, app->self.port);
         printf("sent: %s\n", buffer);
-        if (writeTcp(app->ext.fd, app, buffer) < 0)
+        if (writeTcp(app->ext.fd, buffer) < 0)
         {
             printf("Can't write when I'm trying to connect\n");
             exit(1);
@@ -253,6 +385,7 @@ void connectToBackup(AppNode *app, char *buffer, fd_set *currentSockets)
             sprintf(buffer, "EXTERN %s %s %s\n", app->ext.id, app->ext.ip, app->ext.port);
             writeMessageToInterns(app, buffer);
         }
+        updateExpeditionTable(app, app->ext.id, app->ext.id, app->ext.fd);
     }
     else
     {
@@ -284,7 +417,7 @@ void closedExtConnection(AppNode *app, char *buffer, fd_set *currentSockets)
         connectToBackup(app, buffer, currentSockets);
     }
 }
-
+/*
 void acceptFirstConnection(AppNode *app, char *buffer, fd_set *currentSockets)
 {
     if ((app->ext.fd = acceptTcpServer(app)) > 0)
@@ -350,26 +483,213 @@ void acceptFollowingConnections(AppNode *app, char *buffer, fd_set *currentSocke
         printf("Couldn't accept TCP connection\n");
         exit(1);
     }
-}
+}*/
 
-void acceptNeighbourConnection(AppNode *app, char *buffer, fd_set *currentSockets)
+/*
+        if (readTcp(app->interns.intr[queue->numNodesInQueue].fd, app, buffer) < 0)
+        {
+            printf("Can't read when someone is trying to connect\n");
+            exit(1);
+        }
+        // TODO tratar da resposta no buffer
+        printf("recv: %s\n", buffer);
+        if (sscanf(buffer, "NEW %s %s %s\n", app->interns.intr[queue->numNodesInQueue].id, app->interns.intr[queue->numNodesInQueue].ip, app->interns.intr[queue->numNodesInQueue].port) != 3)
+        {
+            printf("wrong format\n");
+            exit(1);
+        }
+        memset(buffer, 0, MAX_BUFFER_SIZE);
+        sprintf(buffer, "EXTERN %s %s %s\n", app->ext.id, app->ext.ip, app->ext.port);
+        printf("sent: %s\n", buffer);
+        if (writeTcp(app->interns.intr[queue->numNodesInQueue].fd, app, buffer) < 0)
+        {
+            printf("Can't write when someone is trying to connect\n");
+            exit(1);
+        }
+
+*/
+
+void acceptNeighbourConnection(AppNode *app, NodeQueue *queue, fd_set *currentSockets)
 {
     // TODO antes de atribuir titulo de externo, assumir q é interno e mete-lo numa queue
     //      assim que ele receber msg do outro lado, tira-lo da queue e ascende-lo a externo
-    if (strcmp(app->self.id, app->ext.id) == 0) // still alone in network
-        acceptFirstConnection(app, buffer, currentSockets);
+    if ((queue->queue[queue->numNodesInQueue].fd = acceptTcpServer(app)) > 0)
+    {
+        FD_SET(queue->queue[queue->numNodesInQueue].fd, currentSockets);
+        queue->numNodesInQueue++;
+    }
     else
-        acceptFollowingConnections(app, buffer, currentSockets);
+    {
+        printf("Couldn't accept TCP connection\n");
+        exit(1);
+    }
+}
+void handleEXTmessage(AppNode *app, char *cmd, char *token)
+{
+    if (strcmp(cmd, "EXTERN") == 0)
+    {
+        if (sscanf(token, "EXTERN %s %s %s", app->bck.id, app->bck.ip, app->bck.port) != 3)
+        {
+            printf("Bad response from server\n");
+        }
+        if (strcmp(app->bck.id, app->self.id) == 0)
+            memmove(&app->bck, &app->self, sizeof(NODE));
+        else
+            updateExpeditionTable(app, app->bck.id, app->ext.id, app->ext.fd);
+    }
+}
+
+void updateExpeditionTable(AppNode *app, char *dest_id, char *neigh_id, int neigh_fd)
+{
+    strcpy(app->expeditionTable[atoi(dest_id)].id, neigh_id);
+    app->expeditionTable[atoi(dest_id)].fd = neigh_fd;
+}
+
+void handleQUERYmessage(AppNode *app, NODE node, char *cmd, char *token)
+{
+    char dest_id[3], orig_id[3], name[100];
+    char buffer[MAX_BUFFER_SIZE] = "\0";
+
+    if (strcmp(cmd, "QUERY") == 0)
+    {
+        if (sscanf(token, "QUERY %s %s %s", dest_id, orig_id, name) != 3)
+        {
+            printf("Bad response from server\n");
+        }
+        updateExpeditionTable(app, orig_id, node.id, node.fd);
+        if (strcmp(app->self.id, dest_id) == 0) // mensagem de query chegou ao destino
+        {
+            if (searchContentOnList(app, name) > 0)
+                sprintf(buffer, "CONTENT %s %s %s\n", orig_id, dest_id, name);
+            else
+                sprintf(buffer, "NOCONTENT %s %s %s\n", orig_id, dest_id, name);
+
+            if (writeTcp(app->expeditionTable[atoi(orig_id)].fd, buffer) < 0)
+            {
+                printf("Cant send Content message\n");
+                exit(1);
+            }
+        }
+        else // propagar queries pelos vizinhos
+        {
+            sprintf(buffer, "QUERY %s %s %s\n", dest_id, orig_id, name);
+            shareQUERYmessages(app, node, buffer, dest_id);
+        }
+    }
+}
+
+void shareQUERYmessages(AppNode *app, NODE node, char *buffer, char *dest_id)
+{
+    if (app->expeditionTable[atoi(dest_id)].fd == 0) // ainda n possui o no destino da tabela de expediçao
+    {
+        if (strcmp(node.id, app->ext.id) != 0)
+        {
+            if (writeTcp(app->ext.fd, buffer) < 0)
+            {
+                printf("Can't write when sending queries\n");
+                exit(1);
+            }
+        }
+        for (int i = 0; i < app->interns.numIntr; i++)
+        {
+            if (strcmp(node.id, app->interns.intr[i].id) != 0)
+            {
+                if (writeTcp(app->interns.intr[i].fd, buffer) < 0)
+                {
+                    printf("Can't write when sending queries\n");
+                    exit(1);
+                }
+            }
+        }
+    }
+    else
+    {
+        if (writeTcp(app->expeditionTable[atoi(dest_id)].fd, buffer) < 0)
+        {
+            printf("Can't write when someone is trying to connect\n");
+            exit(1);
+        }
+    }
 }
 
 void externCommunication(AppNode *app, char *buffer)
 {
-    if (sscanf(buffer, "EXTERN %s %s %s\n", app->bck.id, app->bck.ip, app->bck.port) != 3)
+    char buffer_cpy[MAX_BUFFER_SIZE] = "\0", *token, cmd[24];
+    strcpy(buffer_cpy, buffer);
+    token = strtok(buffer_cpy, "\n");
+    while (token != NULL)
     {
-        printf("Bad response from server\n");
+        strcpy(cmd, token);
+        cmd[strcspn(cmd, " ")] = '\0';
+        handleEXTmessage(app, cmd, token);
+        handleQUERYmessage(app, app->ext, cmd, token);
+        handleCONTENTmessage(app, cmd, token);
+        token = advancePointer(token);
+        token = strtok(token, "\n");
     }
-    if (strcmp(app->bck.id, app->self.id) == 0)
-        memmove(&app->bck, &app->self, sizeof(NODE));
+}
+
+void handleCONTENTmessage(AppNode *app, char *cmd, char *token)
+{
+    char dest_id[3], orig_id[3], name[100];
+    char buffer[MAX_BUFFER_SIZE] = "\0";
+
+    if (strcmp(cmd, "CONTENT") == 0)
+    {
+        if (sscanf(token, "CONTENT %s %s %s", dest_id, orig_id, name) != 3)
+        {
+            printf("Cant read CONTENT msg\n");
+        }
+        if (strcmp(app->self.id, dest_id) == 0) // mensagem de content chegou ao destino
+        {
+            printf("%s is present on %s\n", name, orig_id);
+        }
+        else // enviar msg de content pelo vizinho que possui a socket para comunicar com o nó destino
+        {
+            sprintf(buffer, "CONTENT %s %s %s\n", dest_id, orig_id, name);
+            if (writeTcp(app->expeditionTable[atoi(dest_id)].fd, buffer) < 0)
+            {
+                printf("Cant send Content message\n");
+                exit(1);
+            }
+        }
+    }
+    else if (strcmp(cmd, "NOCONTENT") == 0)
+    {
+        if (sscanf(token, "NOCONTENT %s %s %s", dest_id, orig_id, name) != 3)
+        {
+            printf("Cant read NOCONTENT msg\n");
+        }
+        if (strcmp(app->self.id, dest_id) == 0) // mensagem de content chegou ao destino
+        {
+            printf("%s is not present on %s\n", name, orig_id);
+        }
+        else // enviar msg de no_content pelo vizinho que possui a socket para comunicar com o nó destino
+        {
+            sprintf(buffer, "NOCONTENT %s %s %s\n", dest_id, orig_id, name);
+            if (writeTcp(app->expeditionTable[atoi(dest_id)].fd, buffer) < 0)
+            {
+                printf("Cant send NoContent message\n");
+                exit(1);
+            }
+        }
+    }
+}
+
+void internCommunication(AppNode *app, NODE node, char *buffer)
+{
+    char buffer_cpy[MAX_BUFFER_SIZE] = "\0", *token, cmd[24];
+    strcpy(buffer_cpy, buffer);
+    token = strtok(buffer_cpy, "\n");
+    while (token != NULL)
+    {
+        strcpy(cmd, token);
+        cmd[strcspn(cmd, " ")] = '\0';
+        handleQUERYmessage(app, node, cmd, token);
+        handleCONTENTmessage(app, cmd, token);
+        token = advancePointer(token);
+        token = strtok(token, "\n");
+    }
 }
 
 void leaveCommand(AppNode *app, char *buffer, fd_set *currentSockets, char *regIP, char *regUDP, char *net)
@@ -424,19 +744,12 @@ void djoinCommand(AppNode *app, fd_set *currentSockets, char *buffer, char *boot
         memset(buffer, 0, MAX_BUFFER_SIZE);
         sprintf(buffer, "NEW %s %s %s\n", app->self.id, app->self.ip, app->self.port);
         printf("sent: %s\n", buffer);
-        if (writeTcp(app->ext.fd, app, buffer) < 0)
+        if (writeTcp(app->ext.fd, buffer) < 0)
         {
             printf("Can't write when I'm trying to connect\n");
             exit(1);
         }
         FD_SET(app->ext.fd, currentSockets);
-        /*memset(buffer, 0, MAX_BUFFER_SIZE);
-        sprintf(buffer, "REG %s %s %s %s\n", net, app->self.id, app->self.ip, app->self.port);
-        printf("sent: %s\n", buffer);
-        udpClient(buffer, regIP, regUDP, net);
-        FD_SET(app->self.fd, currentSockets);
-        */
-        // sucessfully connected to ext node
     }
     else
     {
@@ -445,41 +758,98 @@ void djoinCommand(AppNode *app, fd_set *currentSockets, char *buffer, char *boot
     }
 }
 
+void chooseRandomNodeToConnect(char *buffer)
+{
+    char buffer_cpy[MAX_BUFFER_SIZE];
+    char *token;
+    int counter = 0, i, num;
+    srand(time(0));
+
+    memset(buffer_cpy, 0, MAX_BUFFER_SIZE);
+    strcpy(buffer_cpy, buffer);
+    token = strtok(buffer_cpy, "\n");
+    token = strtok(NULL, "\n");
+    while (token != NULL)
+    {
+        counter++;
+        token = strtok(NULL, "\n");
+    }
+
+    if (counter == 0) // lista de nos na rede vazia
+    {
+        return;
+    }
+
+    token = strtok(buffer, "\n");
+    token = strtok(NULL, "\n");
+
+    num = (rand() % counter);
+    for (i = 0; i < counter - 1; i++)
+    {
+        if (i == num)
+            break;
+        token = strtok(NULL, "\n");
+    }
+    strcpy(buffer, token);
+}
+
 void joinCommand(AppNode *app, fd_set *currentSockets, char *buffer, char *regIP, char *regUDP, char *net)
 {
+    char serverResponse[16];
+    sprintf(serverResponse, "NODESLIST %s\n", net);
     memmove(&app->ext, &app->self, sizeof(NODE));
     memmove(&app->bck, &app->self, sizeof(NODE));
     memset(buffer, 0, MAX_BUFFER_SIZE);
     sprintf(buffer, "NODES %s", net);
     udpClient(buffer, regIP, regUDP, net); // gets net nodes
-    if (sscanf(buffer, "%*s %*s %s %s %s", app->ext.id, app->ext.ip, app->ext.port) == 3)
-    {
-        // memmove(&app.bck, &app.ext, sizeof(NODE));
-        if ((app->ext.fd = connectTcpClient(app)) > 0) // join network by connecting to another node
-        {
-            memset(buffer, 0, MAX_BUFFER_SIZE);
-            sprintf(buffer, "NEW %s %s %s\n", app->self.id, app->self.ip, app->self.port);
-            printf("sent: %s\n", buffer);
-            if (writeTcp(app->ext.fd, app, buffer) < 0)
-            {
-                printf("Can't write when I'm trying to connect\n");
-                exit(1);
-            }
-            // adicionar externo aos vizinhos
-            regNetwork(app, buffer, currentSockets, regIP, regUDP, net);
-            FD_SET(app->ext.fd, currentSockets);
-        }
-        else
-        {
-            printf("TCP ERROR!!\n");
-            memmove(&app->ext, &app->self, sizeof(NODE)); // couldnt connect to ext node
-        }
-    }
-    else
+    chooseRandomNodeToConnect(buffer);
+
+    if (strcmp(buffer, serverResponse) == 0) // rede esta vazia
     {
         regNetwork(app, buffer, currentSockets, regIP, regUDP, net);
     }
+    else
+    {
+        if (sscanf(buffer, "%s %s %s", app->ext.id, app->ext.ip, app->ext.port) == 3)
+        {
+            // memmove(&app.bck, &app.ext, sizeof(NODE));
+            if ((app->ext.fd = connectTcpClient(app)) > 0) // join network by connecting to another node
+            {
+                memset(buffer, 0, MAX_BUFFER_SIZE);
+                sprintf(buffer, "NEW %s %s %s\n", app->self.id, app->self.ip, app->self.port);
+                printf("sent: %s\n", buffer);
+                if (writeTcp(app->ext.fd, buffer) < 0)
+                {
+                    printf("Can't write when I'm trying to connect\n");
+                    exit(1);
+                }
+                // adicionar externo aos vizinhos
+                updateExpeditionTable(app, app->ext.id, app->ext.id, app->ext.fd);
+                regNetwork(app, buffer, currentSockets, regIP, regUDP, net);
+                FD_SET(app->ext.fd, currentSockets);
+            }
+            else
+            {
+                printf("TCP ERROR!!\n");
+                memmove(&app->ext, &app->self, sizeof(NODE)); // couldnt connect to ext node
+            }
+        }
+    }
 }
+
+int searchContentOnList(AppNode *app, char *name)
+{
+    LinkedList *aux;
+    aux = app->self.contentList;
+    while (aux != NULL)
+    {
+        if (strcmp(aux->contentName, name) == 0)
+            return 1;
+        aux = aux->next;
+    }
+    return 0;
+}
+
 void showTopologyCommand(AppNode *app)
 {
     printf("---- Self info ----\n");
@@ -491,6 +861,108 @@ void showTopologyCommand(AppNode *app)
     printf("---- Interns info ----\n");
     for (int i = 0; i < app->interns.numIntr; i++)
         printf("%s %s %s\n", app->interns.intr[i].id, app->interns.intr[i].ip, app->interns.intr[i].port);
+}
+
+void deleteCommand(AppNode *app, char *name)
+{
+    LinkedList *ptr, *aux, *head;
+    head = app->self.contentList;
+    ptr = app->self.contentList;
+    for (aux = ptr; aux != NULL; aux = aux->next)
+    {
+        if (strcmp(aux->contentName, name) == 0)
+        {
+            if (aux == head) // Head of the LinkedList
+            {
+                app->self.contentList = aux->next;
+                free(ptr);
+                return;
+            }
+            else
+            {
+                ptr->next = aux->next;
+                free(aux);
+                return;
+            }
+        }
+        ptr = aux;
+    }
+}
+
+void createCommand(AppNode *app, char *name)
+{
+    if (searchContentOnList(app, name) == 0)
+    {
+        LinkedList *new_node = (LinkedList *)malloc(sizeof(LinkedList)); // allocate memory for LinkedList struct
+        if (new_node == NULL)
+        {
+            printf("Malloc went wrong\n");
+            return;
+        }
+        strcpy(new_node->contentName, name);
+        new_node->next = NULL; // set the next pointer to NULL
+
+        if (app->self.contentList == NULL)
+        {
+            app->self.contentList = new_node;
+            return;
+        }
+
+        LinkedList *list = app->self.contentList; // use a separate pointer to iterate over the list
+        while (list->next != NULL)
+        {
+            list = list->next; // advance to the next node in the list
+        }
+
+        list->next = new_node; // add the new node to the end of the list
+    }
+    else
+        printf("Name's already on Content List\n");
+}
+
+void showNamesCommand(AppNode *app)
+{
+    LinkedList *aux;
+    printf("---- CONTENT LIST ----\n");
+    for (aux = app->self.contentList; aux != NULL; aux = aux->next)
+    {
+        printf("%s\n", aux->contentName);
+    }
+}
+
+void getCommand(AppNode *app, char *dest, char *name)
+{
+    char buffer[MAX_BUFFER_SIZE] = "\0";
+    sprintf(buffer, "QUERY %s %s %s\n", dest, app->self.id, name);
+    if (app->expeditionTable[atoi(dest)].fd == 0) // ainda n possui a melhor rota para chegar ao destino
+    {
+        if (writeTcp(app->ext.fd, buffer) < 0)
+        {
+            printf("Cant send QUERY msg to extern\n");
+        }
+        writeMessageToInterns(app, buffer);
+    }
+    else
+    {
+        if (writeTcp(app->expeditionTable[atoi(dest)].fd, buffer) < 0)
+        {
+            printf("Cant send QUERY msg\n");
+        }
+    }
+}
+
+void showRoutingCommand(AppNode *app)
+{
+    char id[3];
+    printf("---- Expedition Table ----\n");
+    for (int i = 0; i < 99; i++)
+    {
+        if (app->expeditionTable[i].fd > 0)
+        {
+            sprintf(id, "%02d", i);
+            printf("%s -> %s\n", id, app->expeditionTable[i].id);
+        }
+    }
 }
 
 void commandMultiplexer(AppNode *app, char *buffer, enum commands cmd, fd_set *currentSockets, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP)
@@ -505,8 +977,23 @@ void commandMultiplexer(AppNode *app, char *buffer, enum commands cmd, fd_set *c
         // Nodes's initialization
         djoinCommand(app, currentSockets, buffer, bootID, bootIP, bootTCP);
         break;
-    case SHOW:
+    case CREATE:
+        createCommand(app, name);
+        break;
+    case DELETE:
+        deleteCommand(app, name);
+        break;
+    case GET:
+        getCommand(app, dest, name);
+        break;
+    case SHOW_TOPOLOGY:
         showTopologyCommand(app);
+        break;
+    case SHOW_NAMES:
+        showNamesCommand(app);
+        break;
+    case SHOW_ROUTING:
+        showRoutingCommand(app);
         break;
     case LEAVE:
         leaveCommand(app, buffer, currentSockets, regIP, regUDP, net);
@@ -514,6 +1001,7 @@ void commandMultiplexer(AppNode *app, char *buffer, enum commands cmd, fd_set *c
     case EXIT:
         FD_CLR(app->self.fd, currentSockets);
         close(app->self.fd);
+        freeContentList(app);
         exit(0);
     default:
         printf("unknown command\n");
@@ -521,7 +1009,18 @@ void commandMultiplexer(AppNode *app, char *buffer, enum commands cmd, fd_set *c
     }
 }
 
-void init(AppNode *app, char *regIP, char *regUDP, char **argv)
+void freeContentList(AppNode *app)
+{
+    LinkedList *aux, *ptr;
+    aux = ptr = app->self.contentList;
+    while (aux != NULL)
+    {
+        aux = aux->next;
+        free(ptr);
+    }
+}
+
+void init(AppNode *app, NodeQueue *queue, char *regIP, char *regUDP, char **argv)
 {
     if (validateCommandLine(argv) < 0)
     {
@@ -529,6 +1028,7 @@ void init(AppNode *app, char *regIP, char *regUDP, char **argv)
         exit(1);
     }
     memset(app, 0, sizeof(struct AppNode));
+    memset(queue, 0, sizeof(struct NodeQueue));
     strcpy(app->self.ip, argv[1]);
     strcpy(app->self.port, argv[2]);
     if ((app->self.fd = openTcpServer(app)) < 0)
@@ -608,11 +1108,11 @@ int openTcpServer(AppNode *app)
     return fd;
 }
 
-int readTcp(int fd, AppNode *app, char *buffer)
+int readTcp(int fd, char *buffer)
 {
     char *buffer_cpy;
     ssize_t n;
-    buffer[0] = '\0';
+    memset(buffer, 0, MAX_BUFFER_SIZE);
     while ((n = read(fd, buffer, MAX_BUFFER_SIZE)) < 0)
     {
         strcat(buffer, buffer_cpy);
@@ -626,9 +1126,9 @@ int readTcp(int fd, AppNode *app, char *buffer)
     return 0;
 }
 
-int writeTcp(int fd, AppNode *app, char *buffer)
+int writeTcp(int fd, char *buffer)
 {
-    if (write(fd, buffer, strlen(buffer) + 1) < 0)
+    if (write(fd, buffer, strlen(buffer)) < 0)
     {
         close(fd);
         return -1;
@@ -640,7 +1140,6 @@ int acceptTcpServer(AppNode *app)
 {
     int fd;
     struct sockaddr_in addr;
-    char buffer[MAX_BUFFER_SIZE];
     socklen_t addrlen;
 
     addrlen = sizeof(addr);
@@ -692,9 +1191,9 @@ int compare_cmd(char *cmdLine)
         "create",
         "delete",
         "get",
+        "show",
         "leave",
         "exit",
-        "show",
     };
     for (int i = 0; i < 8; i++)
     {
@@ -846,18 +1345,26 @@ int validateUserInput(enum commands *cmd, char *buffer, char *bootIP, char *name
         strcpy(name, token);
         break;
     case 5:
-        *cmd = LEAVE;
+        if ((token = strtok(NULL, " \n\r\t")) == NULL)
+            return -1;
+        if (strcmp(token, "topology") == 0)
+            *cmd = SHOW_TOPOLOGY;
+        else if (strcmp(token, "names") == 0)
+            *cmd = SHOW_NAMES;
+        else if (strcmp(token, "routing") == 0)
+            *cmd = SHOW_ROUTING;
+        else
+            *cmd = -1;
         break;
     case 6:
+        *cmd = LEAVE;
+        break;
+    case 7:
         *cmd = EXIT;
         exit(1);
         break;
-    case 7:
-        *cmd = SHOW;
-        break;
     default:
         *cmd = -1;
-        printf("Unknown Command\n");
         break;
     }
     return 0;
