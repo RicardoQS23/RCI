@@ -1,7 +1,7 @@
 #ifndef _PROJECT_
 #define _PROJECT_
 
-#define MAX_BUFFER_SIZE 124
+#define MAX_BUFFER_SIZE 256
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -73,7 +73,10 @@ enum commands
     SHOW_TOPOLOGY,
     SHOW_ROUTING,
     LEAVE,
-    EXIT
+    EXIT,
+    CLEAR_NAMES,
+    CLEAR_ROUTING,
+    LOAD
 };
 
                                         /*  USER INPUT RELATED FUNCTIONS */
@@ -86,11 +89,14 @@ void getCommand(AppNode *app, char *dest, char *name);
 void showTopologyCommand(AppNode *app);
 void showNamesCommand(AppNode *app);
 void showRoutingCommand(AppNode *app);
-void commandMultiplexer(AppNode *app, char *buffer, enum commands cmd, fd_set *currentSockets, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP);
+void clearNamesCommand(AppNode *app);
+void clearRoutingCommand(AppNode *app);
+void loadCommand(AppNode *app, char *fileName, char *buffer);
+void commandMultiplexer(AppNode *app, char *buffer, enum commands cmd, fd_set *currentSockets, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName);
 
                                         /*  VALIDATION RELATED FUNCTIONS */
 void init(AppNode *app, NodeQueue *queue, char *regIP, char *regUDP, char **argv);
-int validateUserInput(enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, AppNode *app);
+int validateUserInput(enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *fileName, AppNode *app);
 int validateCommandLine(char **cmdLine);
 int validate_number(char *str);
 int validate_ip(char *ip);
@@ -124,8 +130,8 @@ void popQueue(NodeQueue *queue, fd_set *currentSockets, int pos);
 void promoteQueueToIntern(AppNode *app, NodeQueue *queue, fd_set *currentSockets, int pos);
 
                                         /* INTERRUPTION HANDLING RELATED FUNCTIONS */
-void handleInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP);
-void handleUserInputInterruption(AppNode *app, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP);
+void handleInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName);
+void handleUserInputInterruption(AppNode *app, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName);
 void handleServerInterruption(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets);
 void handleExtInterruption(AppNode *app, char *buffer, fd_set *readSockets, fd_set *currentSockets);
 void handleInternInterruptions(AppNode *app, fd_set *readSockets, fd_set *currentSockets, char *buffer);
