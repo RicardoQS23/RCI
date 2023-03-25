@@ -10,8 +10,7 @@
         "isDefault": true
       },
       "args": [
-        "all",
-        "-fdiagnostics-color=always",
+        "all"
       ],
     }
   ]
