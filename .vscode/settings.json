@@ -37,6 +37,7 @@
   "C_Cpp.errorSquiggles": "disabled",
   "files.associations": {
     "typeinfo": "c",
-    "thread": "c"
+    "thread": "c",
+    "in.h": "c"
   }
 }

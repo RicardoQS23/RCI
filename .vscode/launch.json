@@ -1,13 +1,14 @@
 {
   "configurations": [
+
       {
-          "name": "C/C++: gcc build and debug active file",
+          "name": "Build",
           "type": "cppdbg",
           "request": "launch",
           "program": "${fileDirname}/cot",
           "args": [
               "127.0.0.1",
-              "53002",
+              "59000",
               "193.136.138.142",
               "59000"
           ],
@@ -28,7 +29,7 @@
                   "ignoreFailures": true
               }
           ],
-          "preLaunchTask": "C/C++: gcc build active file",
+          "preLaunchTask": "Build",
           "miDebuggerPath": "/usr/bin/gdb"
       }
   ],
