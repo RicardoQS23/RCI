@@ -190,10 +190,10 @@ void closedIntConnection(AppNode *app, fd_set *currentSockets, int i)
 
 int readTcp(int fd, char *buffer)
 {
-    char *buffer_cpy = (char *) malloc(MAX_BUFFER_SIZE * sizeof(char));
+    char *buffer_cpy = (char *)malloc(MAX_BUFFER_SIZE * sizeof(char));
     ssize_t n;
     memset(buffer, 0, MAX_BUFFER_SIZE);
-    while ((n = read(fd, buffer, MAX_BUFFER_SIZE)) < 0)
+    while ((n = read(fd, buffer_cpy, MAX_BUFFER_SIZE)) < 0)
     {
         strcat(buffer, buffer_cpy);
     }
@@ -210,11 +210,19 @@ int readTcp(int fd, char *buffer)
 
 int writeTcp(int fd, char *buffer)
 {
-    if (write(fd, buffer, strlen(buffer)) < 0)
+    ssize_t n_ToSend, n_Sent, n_totalSent = 0;
+    n_ToSend = strlen(buffer);
+    while (n_totalSent < n_ToSend)
     {
-        close(fd);
-        return -1;
+        n_Sent = write(fd, buffer, strlen(buffer));
+        if (n_Sent < 0)
+        {
+            close(fd);
+            return -1;
+        }
+        n_totalSent += n_Sent;
     }
+
     return 0;
 }
 
@@ -259,7 +267,7 @@ void connectToBackup(AppNode *app, char *buffer, fd_set *currentSockets)
         FD_SET(app->ext.fd, currentSockets); // sucessfully connected to ext node
         memset(buffer, 0, MAX_BUFFER_SIZE);
         sprintf(buffer, "NEW %s %s %s\n", app->self.id, app->self.ip, app->self.port);
-        //printf("sent: %s\n", buffer);
+        // printf("sent: %s\n", buffer);
         if (writeTcp(app->ext.fd, buffer) < 0)
         {
             printf("Can't write when I'm trying to connect\n");
