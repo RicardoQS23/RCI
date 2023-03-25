@@ -21,7 +21,7 @@ void init(AppNode *app, NodeQueue *queue, char *regIP, char *regUDP, char **argv
 }
 
 
-int validateUserInput(enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, AppNode *app)
+int validateUserInput(enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *fileName, AppNode *app)
 {
     char *token;
     int cmd_code;
@@ -128,6 +128,37 @@ int validateUserInput(enum commands *cmd, char *buffer, char *bootIP, char *name
     case 7:
         *cmd = EXIT;
         break;
+    case 8:
+        if ((token = strtok(NULL, " \n\r\t")) == NULL)
+            return -1;
+        if (strcmp(token, "names") == 0)
+            *cmd = CLEAR_NAMES;
+        else if (strcmp(token, "routing") == 0)
+            *cmd = CLEAR_ROUTING;
+        else
+            *cmd = -1;
+        break;
+    case 9:
+        *cmd = LOAD;
+        if ((token = strtok(NULL, " \n\r\t")) == NULL)
+            return -1;
+        strcpy(fileName, token);
+        break;
+    case 10:
+        *cmd = SHOW_NAMES;
+        break;
+    case 11:
+        *cmd = SHOW_TOPOLOGY;
+        break;
+    case 12:
+        *cmd = SHOW_ROUTING;
+        break;
+    case 13:
+        *cmd = CLEAR_NAMES;
+        break;
+    case 14:
+        *cmd = CLEAR_ROUTING;
+        break;
     default:
         *cmd = -1;
         break;
@@ -200,7 +231,7 @@ int validate_ip(char *ip)
 
 int compare_cmd(char *cmdLine)
 {
-    char cmds[8][7] = {
+    char cmds[15][7] = {
         "join",
         "djoin",
         "create",
@@ -209,8 +240,15 @@ int compare_cmd(char *cmdLine)
         "show",
         "leave",
         "exit",
+        "clear",
+        "load",
+        "sn",
+        "st",
+        "sr",
+        "cn",
+        "cr"
     };
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 15; i++)
     {
         if (strcmp(cmdLine, cmds[i]) == 0)
             return i;

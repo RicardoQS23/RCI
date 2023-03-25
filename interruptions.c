@@ -1,8 +1,8 @@
 #include "project.h"
 
-void handleInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP)
+void handleInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName)
 {
-    handleUserInputInterruption(app, readSockets, currentSockets, cmd, buffer, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP);
+    handleUserInputInterruption(app, readSockets, currentSockets, cmd, buffer, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, fileName);
     handleServerInterruption(app, queue, readSockets, currentSockets);
     handleExtInterruption(app, buffer, readSockets, currentSockets);
     handleInternInterruptions(app, readSockets, currentSockets, buffer);
@@ -10,7 +10,7 @@ void handleInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd
 }
 
 
-void handleUserInputInterruption(AppNode *app, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP)
+void handleUserInputInterruption(AppNode *app, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName)
 {
     if (FD_ISSET(0, readSockets))
     {
@@ -20,12 +20,12 @@ void handleUserInputInterruption(AppNode *app, fd_set *readSockets, fd_set *curr
             printf("Couldn't read user input\n");
             return;
         }
-        if (validateUserInput(cmd, buffer, bootIP, name, dest, bootID, bootTCP, net, app) < 0)
+        if (validateUserInput(cmd, buffer, bootIP, name, dest, bootID, bootTCP, net, fileName, app) < 0)
         {
             printf("bad user input\n");
             return;
         }
-        commandMultiplexer(app, buffer, *cmd, currentSockets, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP);
+        commandMultiplexer(app, buffer, *cmd, currentSockets, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, fileName);
     }
 }
 

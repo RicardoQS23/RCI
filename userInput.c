@@ -104,7 +104,7 @@ void createCommand(AppNode *app, char *name)
 {
     if (searchContentOnList(app, name) == 0)
     {
-        LinkedList *new_node = (LinkedList *)malloc(sizeof(LinkedList)); // allocate memory for LinkedList struct
+        LinkedList *new_node = (LinkedList *) malloc(sizeof(LinkedList)); // allocate memory for LinkedList struct
         if (new_node == NULL)
         {
             printf("Malloc went wrong\n");
@@ -131,11 +131,49 @@ void createCommand(AppNode *app, char *name)
         printf("Name's already on Content List\n");
 }
 
+void loadCommand(AppNode *app, char *fileName, char *buffer)
+{
+    FILE *fp = NULL;
+    char *token, name[100];
+
+    if((fp = fopen(fileName, "r")) == NULL)
+    {
+        printf("Can't open %s file\n", fileName);
+        return;
+    }
+    while(fgets(buffer, MAX_BUFFER_SIZE, fp) != NULL)
+    {
+        token = strtok(buffer, " \n\t\r");
+        while(token != NULL)
+        {
+            strcpy(name, token);
+            createCommand(app, name);
+            token = strtok(NULL, " \n\t\r");
+        }
+    }
+}
+
+void clearNamesCommand(AppNode *app)
+{
+    freeContentList(app);
+}
+
+void clearRoutingCommand(AppNode *app)
+{
+    char id[3];
+    for(int i = 0; i < 100; i++)
+    {
+        sprintf(id, "%02d", i);
+        updateExpeditionTable(app, id, "-1", 0);
+    }
+}
+
 void deleteCommand(AppNode *app, char *name)
 {
     LinkedList *ptr, *aux, *head;
     head = app->self.contentList;
     ptr = app->self.contentList;
+
     for (aux = ptr; aux != NULL; aux = aux->next)
     {
         if (strcmp(aux->contentName, name) == 0)
@@ -215,7 +253,9 @@ void showRoutingCommand(AppNode *app)
     }
 }
 
-void commandMultiplexer(AppNode *app, char *buffer, enum commands cmd, fd_set *currentSockets, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP)
+
+
+void commandMultiplexer(AppNode *app, char *buffer, enum commands cmd, fd_set *currentSockets, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName)
 {
     switch (cmd)
     {
@@ -247,6 +287,15 @@ void commandMultiplexer(AppNode *app, char *buffer, enum commands cmd, fd_set *c
         break;
     case LEAVE:
         leaveCommand(app, buffer, currentSockets, regIP, regUDP, net);
+        break;
+    case CLEAR_NAMES:
+        clearNamesCommand(app);
+        break;
+    case CLEAR_ROUTING:
+        clearRoutingCommand(app);
+        break;
+    case LOAD:
+        loadCommand(app, fileName, buffer);
         break;
     case EXIT:
         FD_CLR(app->self.fd, currentSockets);

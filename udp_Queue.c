@@ -68,7 +68,7 @@ void udpClient(char *buffer, char *ip, char *port, char *net)
     n = recvfrom(fd, buffer, MAX_BUFFER_SIZE, 0, (struct sockaddr *)&addr, &addrlen);
     if (n == -1)
         exit(1);
-    printf("%s\n", buffer);
+    //printf("%s\n", buffer);
     freeaddrinfo(res);
     close(fd);
 }
@@ -77,7 +77,6 @@ void regNetwork(AppNode *app, char *buffer, fd_set *currentSockets, char *regIP,
 {
     memset(buffer, 0, MAX_BUFFER_SIZE);
     sprintf(buffer, "REG %s %s %s %s", net, app->self.id, app->self.ip, app->self.port);
-    //printf("sent: %s\n", buffer);
     udpClient(buffer, regIP, regUDP, net);
     FD_SET(app->self.fd, currentSockets);
 }
@@ -86,7 +85,6 @@ void unregNetwork(AppNode *app, char *buffer, fd_set *currentSockets, char *regI
 {
     memset(buffer, 0, MAX_BUFFER_SIZE);
     sprintf(buffer, "UNREG %s %s", net, app->self.id);
-    //printf("sent: %s\n", buffer);
     udpClient(buffer, regIP, regUDP, net);
 }
 

@@ -31,10 +31,12 @@ int searchContentOnList(AppNode *app, char *name)
 
 void freeContentList(AppNode *app)
 {
-    LinkedList *aux, *ptr;
-    aux = ptr = app->self.contentList;
-    while (aux != NULL)
+    LinkedList *ptr, *aux;
+    aux = app->self.contentList;
+    while(aux != NULL)
     {
+        ptr = aux;
+        app->self.contentList = aux->next;
         aux = aux->next;
         free(ptr);
     }
