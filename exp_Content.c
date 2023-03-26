@@ -19,7 +19,7 @@ void clearExpeditionTable(AppNode *app)
 int searchContentOnList(AppNode *app, char *name)
 {
     LinkedList *aux;
-    aux = app->self.contentList;
+    aux = app->contentList;
     while (aux != NULL)
     {
         if (strcmp(aux->contentName, name) == 0)
@@ -32,11 +32,11 @@ int searchContentOnList(AppNode *app, char *name)
 void freeContentList(AppNode *app)
 {
     LinkedList *ptr, *aux;
-    aux = app->self.contentList;
+    aux = app->contentList;
     while(aux != NULL)
     {
         ptr = aux;
-        app->self.contentList = aux->next;
+        app->contentList = aux->next;
         aux = aux->next;
         free(ptr);
     }

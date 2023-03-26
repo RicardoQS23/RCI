@@ -1,5 +1,35 @@
 #include "project.h"
 
+int handleNEWmessage(AppNode *app, NodeQueue *queue, fd_set *currentSockets, int pos, char *cmd, char *token)
+{
+    if (strcmp(cmd, "NEW") == 0)
+    {
+        if (sscanf(token, "NEW %s %s %s", queue->queue[pos].id, queue->queue[pos].ip, queue->queue[pos].port) != 3)
+        {
+            printf("Bad response from queue\n");
+            return -1;
+        }
+        promoteQueueToIntern(app, queue, currentSockets, pos);
+        if (strcmp(app->ext.id, app->self.id) == 0)
+        {
+            promoteInternToExtern(app);
+            return 1;
+        }
+        else
+        {
+            sprintf(app->interns.intr[app->interns.numIntr - 1].socket.buffer, "EXTERN %s %s %s\n", app->ext.id, app->ext.ip, app->ext.port);
+            if (writeTcp(app->interns.intr[app->interns.numIntr - 1].socket) < 0)
+            {
+                printf("Can't write when someone is trying to connect\n");
+            }
+            memset(app->interns.intr[app->interns.numIntr - 1].socket.buffer, 0, MAX_BUFFER_SIZE);
+
+            return 0;
+        }
+    }
+    return -1;
+}
+
 void handleEXTmessage(AppNode *app, char *cmd, char *token)
 {
     if (strcmp(cmd, "EXTERN") == 0)
@@ -11,33 +41,35 @@ void handleEXTmessage(AppNode *app, char *cmd, char *token)
         if (strcmp(app->bck.id, app->self.id) == 0)
             memmove(&app->bck, &app->self, sizeof(NODE));
         else
-            updateExpeditionTable(app, app->bck.id, app->ext.id, app->ext.fd);
+            updateExpeditionTable(app, app->bck.id, app->ext.id, app->ext.socket.fd);
     }
 }
 
 void handleQUERYmessage(AppNode *app, NODE node, char *cmd, char *token)
 {
-    char dest_id[3], orig_id[3], name[100];
-    char buffer[MAX_BUFFER_SIZE] = "\0";
-
     if (strcmp(cmd, "QUERY") == 0)
     {
+        char dest_id[3], orig_id[3], name[100];
+        char buffer[MAX_BUFFER_SIZE] = "\0";
+        SOCKET expTableSocket;
+
         if (sscanf(token, "QUERY %s %s %s", dest_id, orig_id, name) != 3)
         {
             printf("Bad response from server\n");
         }
-        updateExpeditionTable(app, orig_id, node.id, node.fd);
+        updateExpeditionTable(app, orig_id, node.id, node.socket.fd);
         if (strcmp(app->self.id, dest_id) == 0) // mensagem de query chegou ao destino
         {
+            expTableSocket.fd = app->expeditionTable[atoi(orig_id)].fd;
             if (searchContentOnList(app, name) > 0)
-                sprintf(buffer, "CONTENT %s %s %s\n", orig_id, dest_id, name);
+                sprintf(expTableSocket.buffer, "CONTENT %s %s %s\n", orig_id, dest_id, name);
             else
-                sprintf(buffer, "NOCONTENT %s %s %s\n", orig_id, dest_id, name);
+                sprintf(expTableSocket.buffer, "NOCONTENT %s %s %s\n", orig_id, dest_id, name);
 
-            if (writeTcp(app->expeditionTable[atoi(orig_id)].fd, buffer) < 0)
+            if (writeTcp(expTableSocket) < 0)
             {
                 printf("Cant send Content message\n");
-                exit(1);
+                return;
             }
         }
         else // propagar queries pelos vizinhos
@@ -51,7 +83,7 @@ void handleQUERYmessage(AppNode *app, NODE node, char *cmd, char *token)
 void handleCONTENTmessage(AppNode *app, NODE node, char *cmd, char *token)
 {
     char dest_id[3], orig_id[3], name[100];
-    char buffer[MAX_BUFFER_SIZE] = "\0";
+    SOCKET expTableSocket;
 
     if (strcmp(cmd, "CONTENT") == 0)
     {
@@ -59,18 +91,20 @@ void handleCONTENTmessage(AppNode *app, NODE node, char *cmd, char *token)
         {
             printf("Cant read CONTENT msg\n");
         }
-        updateExpeditionTable(app, orig_id, node.id, node.fd);
+        updateExpeditionTable(app, orig_id, node.id, node.socket.fd);
         if (strcmp(app->self.id, dest_id) == 0) // mensagem de content chegou ao destino
         {
             printf("%s is present on %s\n", name, orig_id);
         }
         else // enviar msg de content pelo vizinho que possui a socket para comunicar com o nó destino
         {
-            sprintf(buffer, "CONTENT %s %s %s\n", dest_id, orig_id, name);
-            if (writeTcp(app->expeditionTable[atoi(dest_id)].fd, buffer) < 0)
+            expTableSocket.fd = app->expeditionTable[atoi(dest_id)].fd;
+            sprintf(expTableSocket.buffer, "CONTENT %s %s %s\n", dest_id, orig_id, name);
+
+            if (writeTcp(expTableSocket) < 0)
             {
                 printf("Cant send Content message\n");
-                exit(1);
+                return;
             }
         }
     }
@@ -80,18 +114,20 @@ void handleCONTENTmessage(AppNode *app, NODE node, char *cmd, char *token)
         {
             printf("Cant read NOCONTENT msg\n");
         }
-        updateExpeditionTable(app, orig_id, node.id, node.fd);
+        updateExpeditionTable(app, orig_id, node.id, node.socket.fd);
         if (strcmp(app->self.id, dest_id) == 0) // mensagem de content chegou ao destino
         {
             printf("%s is not present on %s\n", name, orig_id);
         }
         else // enviar msg de no_content pelo vizinho que possui a socket para comunicar com o nó destino
         {
-            sprintf(buffer, "NOCONTENT %s %s %s\n", dest_id, orig_id, name);
-            if (writeTcp(app->expeditionTable[atoi(dest_id)].fd, buffer) < 0)
+            expTableSocket.fd = app->expeditionTable[atoi(dest_id)].fd;
+            sprintf(expTableSocket.buffer, "NOCONTENT %s %s %s\n", dest_id, orig_id, name);
+
+            if (writeTcp(expTableSocket) < 0)
             {
                 printf("Cant send NoContent message\n");
-                exit(1);
+                return;
             }
         }
     }
@@ -99,13 +135,14 @@ void handleCONTENTmessage(AppNode *app, NODE node, char *cmd, char *token)
 
 void handleWITHDRAWmessage(AppNode *app, NODE node, char *cmd, char *token)
 {
-    char withdrawn_id[3];
-
     if (strcmp(cmd, "WITHDRAW") == 0)
     {
+        char withdrawn_id[3];
+        char buffer[64] = "\0";
         if (sscanf(token, "WITHDRAW %s", withdrawn_id) != 1)
         {
             printf("Cant read WITHDRAW msg\n");
+            return;
         }
         updateExpeditionTable(app, withdrawn_id, "-1", 0);
         for (int i = 0; i < 100; i++)
@@ -113,63 +150,77 @@ void handleWITHDRAWmessage(AppNode *app, NODE node, char *cmd, char *token)
             if (strcmp(app->expeditionTable[i].id, withdrawn_id) == 0)
                 updateExpeditionTable(app, app->expeditionTable[i].id, "-1", 0);
         }
-        shareWITHDRAWmessages(app, node, token);
+        strcpy(buffer, token);
+        strcat(buffer, "\n");
+        shareWITHDRAWmessages(app, node, buffer);
     }
 }
 
 void shareQUERYmessages(AppNode *app, NODE node, char *buffer, char *dest_id)
 {
+    SOCKET expTableSocket;
     if (app->expeditionTable[atoi(dest_id)].fd == 0) // ainda n possui o no destino da tabela de expediçao
     {
         if (strcmp(node.id, app->ext.id) != 0)
         {
-            if (writeTcp(app->ext.fd, buffer) < 0)
+            strcpy(app->ext.socket.buffer, buffer);
+            if (writeTcp(app->ext.socket) < 0)
             {
                 printf("Can't write when sending queries\n");
-                exit(1);
+                return;
             }
+            memset(app->ext.socket.buffer, 0, MAX_BUFFER_SIZE);
         }
         for (int i = 0; i < app->interns.numIntr; i++)
         {
             if (strcmp(node.id, app->interns.intr[i].id) != 0)
             {
-                if (writeTcp(app->interns.intr[i].fd, buffer) < 0)
+                strcpy(app->interns.intr[i].socket.buffer, buffer);
+                if (writeTcp(app->interns.intr[i].socket) < 0)
                 {
                     printf("Can't write when sending queries\n");
-                    exit(1);
+                    return;
                 }
+                memset(app->interns.intr[i].socket.buffer, 0, MAX_BUFFER_SIZE);
+
             }
         }
     }
     else
     {
-        if (writeTcp(app->expeditionTable[atoi(dest_id)].fd, buffer) < 0)
+        expTableSocket.fd = app->expeditionTable[atoi(dest_id)].fd;
+        strcpy(expTableSocket.buffer, buffer);
+        if (writeTcp(expTableSocket) < 0)
         {
             printf("Can't write when someone is trying to connect\n");
-            exit(1);
+            return;
         }
     }
 }
 
-void shareWITHDRAWmessages(AppNode *app, NODE node, char *buffer)
+void shareWITHDRAWmessages(AppNode *app, NODE node, char *token)
 {
     if (strcmp(node.id, app->ext.id) != 0)
     {
-        if (writeTcp(app->ext.fd, buffer) < 0)
+        strcpy(app->ext.socket.buffer, token);
+        if (writeTcp(app->ext.socket) < 0)
         {
             printf("Can't write when sending queries\n");
-            exit(1);
+            return;
         }
+        memset(app->ext.socket.buffer, 0, MAX_BUFFER_SIZE);
     }
     for (int i = 0; i < app->interns.numIntr; i++)
     {
         if (strcmp(node.id, app->interns.intr[i].id) != 0)
         {
-            if (writeTcp(app->interns.intr[i].fd, buffer) < 0)
+            strcpy(app->interns.intr[i].socket.buffer, token);
+            if (writeTcp(app->interns.intr[i].socket) < 0)
             {
                 printf("Can't write when sending queries\n");
-                exit(1);
+                return;
             }
+            memset(app->interns.intr[i].socket.buffer, 0, MAX_BUFFER_SIZE);
         }
     }
 }

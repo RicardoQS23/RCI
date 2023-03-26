@@ -1,13 +1,14 @@
 #include "project.h"
 
-void joinCommand(AppNode *app, fd_set *currentSockets, char *buffer, char *regIP, char *regUDP, char *net)
+void joinCommand(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP, char *net)
 {
-    char serverResponse[16];
-    sprintf(serverResponse, "NODESLIST %s\n", net);
+    char buffer[MAX_BUFFER_SIZE] = "\0", serverResponse[16] = "\0";
+
     memmove(&app->ext, &app->self, sizeof(NODE));
     memmove(&app->bck, &app->self, sizeof(NODE));
-    memset(buffer, 0, MAX_BUFFER_SIZE);
+
     sprintf(buffer, "NODES %s", net);
+    sprintf(serverResponse, "NODESLIST %s\n", net);
     udpClient(buffer, regIP, regUDP, net); // gets net nodes
     if (chooseRandomNodeToConnect(buffer, app->self.id) == 1)
     {
@@ -18,39 +19,39 @@ void joinCommand(AppNode *app, fd_set *currentSockets, char *buffer, char *regIP
     {
         if (strcmp(buffer, serverResponse) == 0) // rede esta vazia
         {
-            regNetwork(app, buffer, currentSockets, regIP, regUDP, net);
+            regNetwork(app, currentSockets, regIP, regUDP, net);
         }
         else
         {
             if (sscanf(buffer, "%s %s %s", app->ext.id, app->ext.ip, app->ext.port) == 3)
             {
-                // memmove(&app.bck, &app.ext, sizeof(NODE));
-                if ((app->ext.fd = connectTcpClient(app)) > 0) // join network by connecting to another node
+                if ((app->ext.socket.fd = connectTcpClient(app)) > 0) // join network by connecting to another node
                 {
-                    memset(buffer, 0, MAX_BUFFER_SIZE);
-                    sprintf(buffer, "NEW %s %s %s\n", app->self.id, app->self.ip, app->self.port);
-                    // printf("sent: %s\n", buffer);
-                    if (writeTcp(app->ext.fd, buffer) < 0)
+                    memset(app->ext.socket.buffer, 0, MAX_BUFFER_SIZE);
+                    sprintf(app->ext.socket.buffer, "NEW %s %s %s\n", app->self.id, app->self.ip, app->self.port);
+                    if (writeTcp(app->ext.socket) < 0)
                     {
                         printf("Can't write when I'm trying to connect\n");
-                        exit(1);
+                        memmove(&app->ext, &app->self, sizeof(NODE));
+                        return;
                     }
+                    memset(app->ext.socket.buffer, 0, MAX_BUFFER_SIZE);
                     // adicionar externo aos vizinhos
-                    updateExpeditionTable(app, app->ext.id, app->ext.id, app->ext.fd);
-                    regNetwork(app, buffer, currentSockets, regIP, regUDP, net);
-                    FD_SET(app->ext.fd, currentSockets);
+                    updateExpeditionTable(app, app->ext.id, app->ext.id, app->ext.socket.fd);
+                    regNetwork(app, currentSockets, regIP, regUDP, net);
+                    FD_SET(app->ext.socket.fd, currentSockets);
                 }
                 else
                 {
-                    printf("TCP ERROR!!\n");
-                    memmove(&app->ext, &app->self, sizeof(NODE)); // couldnt connect to ext node
+                    printf("Couldn't connect\n");
+                    memmove(&app->ext, &app->self, sizeof(NODE));
                 }
             }
         }
     }
 }
 
-void djoinCommand(AppNode *app, fd_set *currentSockets, char *buffer, char *bootID, char *bootIP, char *bootTCP)
+void djoinCommand(AppNode *app, fd_set *currentSockets, char *bootID, char *bootIP, char *bootTCP)
 {
     memmove(&app->ext, &app->self, sizeof(NODE));
     memmove(&app->bck, &app->self, sizeof(NODE));
@@ -58,17 +59,18 @@ void djoinCommand(AppNode *app, fd_set *currentSockets, char *buffer, char *boot
     strcpy(app->ext.ip, bootIP);
     strcpy(app->ext.port, bootTCP);
 
-    if ((app->ext.fd = connectTcpClient(app)) > 0) // join network by connecting to another node
+    if ((app->ext.socket.fd = connectTcpClient(app)) > 0) // join network by connecting to another node
     {
-        memset(buffer, 0, MAX_BUFFER_SIZE);
-        sprintf(buffer, "NEW %s %s %s\n", app->self.id, app->self.ip, app->self.port);
-        // printf("sent: %s\n", buffer);
-        if (writeTcp(app->ext.fd, buffer) < 0)
+        memset(app->ext.socket.buffer, 0, MAX_BUFFER_SIZE);
+        sprintf(app->ext.socket.buffer, "NEW %s %s %s\n", app->self.id, app->self.ip, app->self.port);
+        if (writeTcp(app->ext.socket) < 0)
         {
             printf("Can't write when I'm trying to connect\n");
-            exit(1);
+            memmove(&app->ext, &app->self, sizeof(NODE));
+            return;
         }
-        FD_SET(app->ext.fd, currentSockets);
+        memset(app->ext.socket.buffer, 0, MAX_BUFFER_SIZE);
+        FD_SET(app->ext.socket.fd, currentSockets);
     }
     else
     {
@@ -77,34 +79,34 @@ void djoinCommand(AppNode *app, fd_set *currentSockets, char *buffer, char *boot
     }
 }
 
-void leaveCommand(AppNode *app, char *buffer, fd_set *currentSockets, char *regIP, char *regUDP, char *net)
+void leaveCommand(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP, char *net)
 {
     clearExpeditionTable(app);
-    unregNetwork(app, buffer, currentSockets, regIP, regUDP, net);
+    unregNetwork(app, currentSockets, regIP, regUDP, net);
     // Closing sockets
     if (strcmp(app->ext.id, app->self.id) != 0) // has extern
     {
-        FD_CLR(app->ext.fd, currentSockets);
-        close(app->ext.fd);
+        FD_CLR(app->ext.socket.fd, currentSockets);
+        close(app->ext.socket.fd);
     }
     if (app->interns.numIntr > 0)
     {
         for (int i = 0; i < app->interns.numIntr; i++)
         {
-            FD_CLR(app->interns.intr[i].fd, currentSockets);
-            close(app->interns.intr[i].fd);
+            FD_CLR(app->interns.intr[i].socket.fd, currentSockets);
+            close(app->interns.intr[i].socket.fd);
         }
         app->interns.numIntr = 0;
     }
     memmove(&app->ext, &app->self, sizeof(NODE));
-    memmove(&app->ext, &app->self, sizeof(NODE));
+    memmove(&app->bck, &app->self, sizeof(NODE));
 }
 
 void createCommand(AppNode *app, char *name)
 {
     if (searchContentOnList(app, name) == 0)
     {
-        LinkedList *new_node = (LinkedList *) malloc(sizeof(LinkedList)); // allocate memory for LinkedList struct
+        LinkedList *new_node = (LinkedList *)malloc(sizeof(LinkedList)); // allocate memory for LinkedList struct
         if (new_node == NULL)
         {
             printf("Malloc went wrong\n");
@@ -113,44 +115,45 @@ void createCommand(AppNode *app, char *name)
         strcpy(new_node->contentName, name);
         new_node->next = NULL; // set the next pointer to NULL
 
-        if (app->self.contentList == NULL)
+        if (app->contentList == NULL)
         {
-            app->self.contentList = new_node;
+            app->contentList = new_node;
             return;
         }
 
-        LinkedList *list = app->self.contentList; // use a separate pointer to iterate over the list
+        LinkedList *list = app->contentList; // use a separate pointer to iterate over the list
+
         while (list->next != NULL)
         {
             list = list->next; // advance to the next node in the list
         }
-
         list->next = new_node; // add the new node to the end of the list
     }
     else
         printf("Name's already on Content List\n");
 }
 
-void loadCommand(AppNode *app, char *fileName, char *buffer)
+void loadCommand(AppNode *app, char *fileName)
 {
     FILE *fp = NULL;
-    char *token, name[100];
+    char buffer[MAX_BUFFER_SIZE], *token, name[100];
 
-    if((fp = fopen(fileName, "r")) == NULL)
+    if ((fp = fopen(fileName, "r")) == NULL)
     {
         printf("Can't open %s file\n", fileName);
         return;
     }
-    while(fgets(buffer, MAX_BUFFER_SIZE, fp) != NULL)
+    while (fgets(buffer, MAX_BUFFER_SIZE, fp) != NULL)
     {
         token = strtok(buffer, " \n\t\r");
-        while(token != NULL)
+        while (token != NULL)
         {
             strcpy(name, token);
             createCommand(app, name);
             token = strtok(NULL, " \n\t\r");
         }
     }
+    fclose(fp);
 }
 
 void clearNamesCommand(AppNode *app)
@@ -161,7 +164,7 @@ void clearNamesCommand(AppNode *app)
 void clearRoutingCommand(AppNode *app)
 {
     char id[3];
-    for(int i = 0; i < 100; i++)
+    for (int i = 0; i < 100; i++)
     {
         sprintf(id, "%02d", i);
         updateExpeditionTable(app, id, "-1", 0);
@@ -171,8 +174,8 @@ void clearRoutingCommand(AppNode *app)
 void deleteCommand(AppNode *app, char *name)
 {
     LinkedList *ptr, *aux, *head;
-    head = app->self.contentList;
-    ptr = app->self.contentList;
+    head = app->contentList;
+    ptr = app->contentList;
 
     for (aux = ptr; aux != NULL; aux = aux->next)
     {
@@ -180,7 +183,7 @@ void deleteCommand(AppNode *app, char *name)
         {
             if (aux == head) // Head of the LinkedList
             {
-                app->self.contentList = aux->next;
+                app->contentList = aux->next;
                 free(ptr);
                 return;
             }
@@ -198,18 +201,24 @@ void deleteCommand(AppNode *app, char *name)
 void getCommand(AppNode *app, char *dest, char *name)
 {
     char buffer[MAX_BUFFER_SIZE] = "\0";
+    SOCKET expTableSocket;
     sprintf(buffer, "QUERY %s %s %s\n", dest, app->self.id, name);
+
     if (app->expeditionTable[atoi(dest)].fd == 0) // ainda n possui a melhor rota para chegar ao destino
     {
-        if (writeTcp(app->ext.fd, buffer) < 0)
+        strcpy(app->ext.socket.buffer, buffer);
+        if (writeTcp(app->ext.socket) < 0)
         {
             printf("Cant send QUERY msg to extern\n");
         }
+        memset(app->ext.socket.buffer, 0, MAX_BUFFER_SIZE);
         writeMessageToInterns(app, buffer);
     }
     else
     {
-        if (writeTcp(app->expeditionTable[atoi(dest)].fd, buffer) < 0)
+        expTableSocket.fd = app->expeditionTable[atoi(dest)].fd;
+        strcpy(expTableSocket.buffer, buffer);
+        if (writeTcp(expTableSocket) < 0)
         {
             printf("Cant send QUERY msg\n");
         }
@@ -233,7 +242,7 @@ void showNamesCommand(AppNode *app)
 {
     LinkedList *aux;
     printf("---- CONTENT LIST ----\n");
-    for (aux = app->self.contentList; aux != NULL; aux = aux->next)
+    for (aux = app->contentList; aux != NULL; aux = aux->next)
     {
         printf("%s\n", aux->contentName);
     }
@@ -253,19 +262,17 @@ void showRoutingCommand(AppNode *app)
     }
 }
 
-
-
-void commandMultiplexer(AppNode *app, char *buffer, enum commands cmd, fd_set *currentSockets, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName)
+void commandMultiplexer(AppNode *app, enum commands cmd, fd_set *currentSockets, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName)
 {
     switch (cmd)
     {
     case JOIN:
         // Nodes's initialization
-        joinCommand(app, currentSockets, buffer, regIP, regUDP, net);
+        joinCommand(app, currentSockets, regIP, regUDP, net);
         break;
     case DJOIN:
         // Nodes's initialization
-        djoinCommand(app, currentSockets, buffer, bootID, bootIP, bootTCP);
+        djoinCommand(app, currentSockets, bootID, bootIP, bootTCP);
         break;
     case CREATE:
         createCommand(app, name);
@@ -286,7 +293,7 @@ void commandMultiplexer(AppNode *app, char *buffer, enum commands cmd, fd_set *c
         showRoutingCommand(app);
         break;
     case LEAVE:
-        leaveCommand(app, buffer, currentSockets, regIP, regUDP, net);
+        leaveCommand(app, currentSockets, regIP, regUDP, net);
         break;
     case CLEAR_NAMES:
         clearNamesCommand(app);
@@ -295,11 +302,10 @@ void commandMultiplexer(AppNode *app, char *buffer, enum commands cmd, fd_set *c
         clearRoutingCommand(app);
         break;
     case LOAD:
-        loadCommand(app, fileName, buffer);
+        loadCommand(app, fileName);
         break;
     case EXIT:
-        FD_CLR(app->self.fd, currentSockets);
-        close(app->self.fd);
+        close(app->self.socket.fd);
         freeContentList(app);
         exit(0);
     default:

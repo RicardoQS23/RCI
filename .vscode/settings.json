@@ -38,6 +38,7 @@
   "files.associations": {
     "typeinfo": "c",
     "thread": "c",
-    "in.h": "c"
+    "in.h": "c",
+    "random": "c"
   }
 }

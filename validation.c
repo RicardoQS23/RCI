@@ -11,7 +11,7 @@ void init(AppNode *app, NodeQueue *queue, char *regIP, char *regUDP, char **argv
     memset(queue, 0, sizeof(struct NodeQueue));
     strcpy(app->self.ip, argv[1]);
     strcpy(app->self.port, argv[2]);
-    if ((app->self.fd = openTcpServer(app)) < 0)
+    if ((app->self.socket.fd = openTcpServer(app)) < 0)
     {
         printf("Couldn't open TCP Server\n");
         exit(1);
@@ -20,8 +20,18 @@ void init(AppNode *app, NodeQueue *queue, char *regIP, char *regUDP, char **argv
     strcpy(regUDP, argv[4]);
 }
 
+int countLFchars(char *buffer)
+{
+    int counter = 0;
+    for(int i = 0; i < strlen(buffer); i++)
+    {
+        if(buffer[i] == '\n')
+            counter++;
+    }
+    return counter;
+}
 
-int validateUserInput(enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *fileName, AppNode *app)
+int validateUserInput(AppNode *app, enum commands *cmd, char *buffer, char *bootIP,  char *name, char *dest, char *bootID, char *bootTCP, char *net, char *fileName)
 {
     char *token;
     int cmd_code;

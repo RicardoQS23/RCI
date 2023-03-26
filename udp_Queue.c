@@ -50,7 +50,12 @@ void udpClient(char *buffer, char *ip, char *port, char *net)
     struct sockaddr_in addr;
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1)
-        exit(1);
+    {
+        printf("Cant communicate with udp server\n");
+        freeaddrinfo(res);
+        close(fd);
+        return;
+    }
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
@@ -58,42 +63,54 @@ void udpClient(char *buffer, char *ip, char *port, char *net)
 
     errcode = getaddrinfo(ip, port, &hints, &res);
     if (errcode != 0)
-        exit(1);
+    {
+        printf("Cant communicate with udp server\n");
+        freeaddrinfo(res);
+        close(fd);
+        return;
+    }
 
-    n = sendto(fd, buffer, strlen(buffer) + 1, 0, res->ai_addr, res->ai_addrlen);
+    n = sendto(fd, buffer, strlen(buffer), 0, res->ai_addr, res->ai_addrlen);
     if (n == -1)
-        exit(1);
+    {
+        printf("Cant communicate with udp server\n");
+        freeaddrinfo(res);
+        close(fd);
+        return;
+    }
 
     addrlen = sizeof(addr);
     n = recvfrom(fd, buffer, MAX_BUFFER_SIZE, 0, (struct sockaddr *)&addr, &addrlen);
     if (n == -1)
-        exit(1);
-    //printf("%s\n", buffer);
+    {
+        printf("Cant communicate with udp server\n");
+    }
     freeaddrinfo(res);
     close(fd);
 }
 
-void regNetwork(AppNode *app, char *buffer, fd_set *currentSockets, char *regIP, char *regUDP, char *net)
+void regNetwork(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP, char *net)
 {
-    memset(buffer, 0, MAX_BUFFER_SIZE);
+    char buffer[64] = "\0";
     sprintf(buffer, "REG %s %s %s %s", net, app->self.id, app->self.ip, app->self.port);
     udpClient(buffer, regIP, regUDP, net);
-    FD_SET(app->self.fd, currentSockets);
+    FD_SET(app->self.socket.fd, currentSockets);
 }
 
-void unregNetwork(AppNode *app, char *buffer, fd_set *currentSockets, char *regIP, char *regUDP, char *net)
+void unregNetwork(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP, char *net)
 {
-    memset(buffer, 0, MAX_BUFFER_SIZE);
+    char buffer[32] = "\0"; 
     sprintf(buffer, "UNREG %s %s", net, app->self.id);
     udpClient(buffer, regIP, regUDP, net);
+    FD_CLR(app->self.socket.fd, currentSockets);
 }
 
 void cleanQueue(NodeQueue *queue, fd_set *currentSockets)
 {
     for (int i = queue->numNodesInQueue; i >= 0; i--)
     {
-        FD_CLR(queue->queue[i].fd, currentSockets);
-        close(queue->queue[i].fd);
+        FD_CLR(queue->queue[i].socket.fd, currentSockets);
+        close(queue->queue[i].socket.fd);
     }
     memset(queue, 0, sizeof(NodeQueue));
 }
@@ -110,5 +127,5 @@ void promoteQueueToIntern(AppNode *app, NodeQueue *queue, fd_set *currentSockets
     app->interns.numIntr++;
     memmove(&app->interns.intr[app->interns.numIntr - 1], &queue->queue[pos], sizeof(NODE));
     popQueue(queue, currentSockets, pos);
-    updateExpeditionTable(app, app->interns.intr[app->interns.numIntr - 1].id, app->interns.intr[app->interns.numIntr - 1].id, app->interns.intr[app->interns.numIntr - 1].fd);
+    updateExpeditionTable(app, app->interns.intr[app->interns.numIntr - 1].id, app->interns.intr[app->interns.numIntr - 1].id, app->interns.intr[app->interns.numIntr - 1].socket.fd);
 }

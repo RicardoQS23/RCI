@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
     AppNode app;
     NodeQueue queue;
     char regIP[16], regUDP[6];
-    char buffer[MAX_BUFFER_SIZE] = "\0", net[4], name[16], dest[16], bootIP[16], bootID[3], bootTCP[6], fileName[24];
+    char net[4], name[16], dest[16], bootIP[16], bootID[3], bootTCP[6], fileName[24];
     fd_set readSockets, currentSockets;
     int counter = 0;
     struct timeval timeout;
@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
             exit(1);
 
         default:
-            handleInterruptions(&app, &queue, &readSockets, &currentSockets, &cmd, buffer, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, fileName);
+            handleInterruptions(&app, &queue, &readSockets, &currentSockets, &cmd, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, fileName);
             break;
         }
         counter = 0;
