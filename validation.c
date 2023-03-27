@@ -1,6 +1,6 @@
 #include "project.h"
 
-void init(AppNode *app, NodeQueue *queue, char *regIP, char *regUDP, char **argv)
+void init(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, char *regIP, char *regUDP, char **argv)
 {
     if (validateCommandLine(argv) < 0)
     {
@@ -18,6 +18,7 @@ void init(AppNode *app, NodeQueue *queue, char *regIP, char *regUDP, char **argv
     }
     strcpy(regIP, argv[3]);
     strcpy(regUDP, argv[4]);
+    temporaryExtern->socket.fd = -1;
 }
 
 int countLFchars(char *buffer)

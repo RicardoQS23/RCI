@@ -129,3 +129,11 @@ void promoteQueueToIntern(AppNode *app, NodeQueue *queue, fd_set *currentSockets
     popQueue(queue, currentSockets, pos);
     updateExpeditionTable(app, app->interns.intr[app->interns.numIntr - 1].id, app->interns.intr[app->interns.numIntr - 1].id, app->interns.intr[app->interns.numIntr - 1].socket.fd);
 }
+
+void promoteTemporaryToExtern(AppNode *app, NODE *temporaryExtern)
+{
+    memmove(&app->ext, &(*temporaryExtern), sizeof(NODE));
+    temporaryExtern->socket.fd = -1;
+    memset(temporaryExtern->socket.buffer, 0, MAX_BUFFER_SIZE);
+    updateExpeditionTable(app, app->ext.id, app->ext.id, app->ext.socket.fd);
+}

@@ -1,11 +1,17 @@
 #include "project.h"
 
+/**
+ * @brief In this function, the expedition table is updated  
+ */
 void updateExpeditionTable(AppNode *app, char *dest_id, char *neigh_id, int neigh_fd)
 {
     strcpy(app->expeditionTable[atoi(dest_id)].id, neigh_id);
     app->expeditionTable[atoi(dest_id)].fd = neigh_fd;
 }
 
+/**
+ * @brief This function table cleans the expedition when the CLEAR ROUTING or the LEAVE comand is issued 
+ */
 void clearExpeditionTable(AppNode *app)
 {
     char id[3];
@@ -16,6 +22,9 @@ void clearExpeditionTable(AppNode *app)
     }
 }
 
+/**
+ * @brief This function searches for the content "name" in the content list of a node
+ */
 int searchContentOnList(AppNode *app, char *name)
 {
     LinkedList *aux;
@@ -29,6 +38,9 @@ int searchContentOnList(AppNode *app, char *name)
     return 0;
 }
 
+/**
+ * @brief This function clears the content list of a node 
+ */
 void freeContentList(AppNode *app)
 {
     LinkedList *ptr, *aux;

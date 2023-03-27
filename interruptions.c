@@ -1,16 +1,24 @@
 #include "project.h"
 
-void handleInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName)
+/**
+ * @brief This function is responsible for the handling of all interruptions. These interruptions can be originated from
+ * several sources, those being user input, server comunication, extern, interns and from the node queue. The functions
+ * calls several other functions, one for each of the possible sources mentioned.
+ */
+void handleInterruptions(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName)
 {
-    handleUserInputInterruption(app, readSockets, currentSockets, cmd, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, fileName);
+    handleUserInputInterruption(app, temporaryExtern, readSockets, currentSockets, cmd, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, fileName);
     handleServerInterruption(app, queue, readSockets, currentSockets);
-    handleExtInterruption(app, readSockets, currentSockets);
+    handleExtInterruption(app, temporaryExtern, readSockets, currentSockets);
     handleInternInterruptions(app, readSockets, currentSockets);
     handleQueueInterruptions(app, queue, readSockets, currentSockets);
+    handleTemporaryExternInterruption(app, temporaryExtern, readSockets, currentSockets);
 }
 
-
-void handleUserInputInterruption(AppNode *app, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName)
+/**
+ * @brief This function handles User-related interruptions 
+ */
+void handleUserInputInterruption(AppNode *app, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName)
 {
     if (FD_ISSET(0, readSockets))
     {
@@ -26,10 +34,13 @@ void handleUserInputInterruption(AppNode *app, fd_set *readSockets, fd_set *curr
             printf("bad user input\n");
             return;
         }
-        commandMultiplexer(app, *cmd, currentSockets, buffer, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, fileName);
+        commandMultiplexer(app, temporaryExtern, *cmd, currentSockets, buffer, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, fileName);
     }
 }
 
+/**
+ * @brief This function handles Server-related interruptions
+ */
 void handleServerInterruption(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets)
 {
     if (FD_ISSET(app->self.socket.fd, readSockets))
@@ -39,14 +50,17 @@ void handleServerInterruption(AppNode *app, NodeQueue *queue, fd_set *readSocket
     }
 }
 
-void handleExtInterruption(AppNode *app, fd_set *readSockets, fd_set *currentSockets)
+/**
+ * @brief This function handles Extern-related interruptions 
+ */
+void handleExtInterruption(AppNode *app, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets)
 {
     if (FD_ISSET(app->ext.socket.fd, readSockets)) // ext talks with us
     {
         FD_CLR(app->ext.socket.fd, readSockets);
         if (readTcp(&(app->ext.socket)) < 0) // conexao fechou e temos de estabelecer nova
         {
-            closedExtConnection(app, currentSockets);
+            closedExtConnection(app, temporaryExtern, currentSockets);
         }
         else
         {
@@ -55,6 +69,9 @@ void handleExtInterruption(AppNode *app, fd_set *readSockets, fd_set *currentSoc
     }
 }
 
+/**
+ * @brief This function handles Intern-related interruptions 
+ */
 void handleInternInterruptions(AppNode *app, fd_set *readSockets, fd_set *currentSockets)
 {
     for (int i = app->interns.numIntr - 1; i >= 0; i--)
@@ -74,6 +91,9 @@ void handleInternInterruptions(AppNode *app, fd_set *readSockets, fd_set *curren
     }
 }
 
+/**
+ * @brief This function handles Queue-related interruptions 
+ */
 void handleQueueInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets)
 {
     for (int i = queue->numNodesInQueue - 1; i >= 0; i--)
@@ -92,5 +112,24 @@ void handleQueueInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSocket
                 queueCommunication(app, queue, currentSockets, i);
             }
         }
+    }
+}
+
+void handleTemporaryExternInterruption(AppNode *app, NODE *temporaryNode, fd_set *readSockets, fd_set *currentSockets)
+{
+    if(FD_ISSET(temporaryNode->socket.fd, readSockets))
+    {
+        FD_CLR(temporaryNode->socket.fd, readSockets);
+        if (readTcp(&(temporaryNode->socket)) < 0)
+            {
+                FD_CLR(temporaryNode->socket.fd, currentSockets);
+                close(temporaryNode->socket.fd);
+                temporaryNode->socket.fd = -1;
+                memset(temporaryNode->socket.buffer, 0, MAX_BUFFER_SIZE);
+            }
+            else
+            {
+                temporaryExternCommunication(app, temporaryNode, currentSockets);
+            }
     }
 }

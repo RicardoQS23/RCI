@@ -30,6 +30,22 @@ int handleNEWmessage(AppNode *app, NodeQueue *queue, fd_set *currentSockets, int
     return -1;
 }
 
+void handleFirstEXTmessage(AppNode *app, NODE *temporaryExtern, char *cmd, char *token)
+{
+    if (strcmp(cmd, "EXTERN") == 0)
+    {
+        if (sscanf(token, "EXTERN %s %s %s", app->bck.id, app->bck.ip, app->bck.port) != 3)
+        {
+            printf("Bad response from server\n");
+        }
+        promoteTemporaryToExtern(app, temporaryExtern);
+        if (strcmp(app->bck.id, app->self.id) == 0)
+            memmove(&app->bck, &app->self, sizeof(NODE));
+        else
+            updateExpeditionTable(app, app->bck.id, app->ext.id, app->ext.socket.fd);
+    }
+}
+
 void handleEXTmessage(AppNode *app, char *cmd, char *token)
 {
     if (strcmp(cmd, "EXTERN") == 0)

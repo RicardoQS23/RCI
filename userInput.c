@@ -1,6 +1,9 @@
 #include "project.h"
 
-void joinCommand(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP, char *net)
+/**
+ * @brief sadhjasdhkjasdjkakdaskj
+ */
+void joinCommand(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets, char *regIP, char *regUDP, char *net)
 {
     char buffer[MAX_BUFFER_SIZE] = "\0", serverResponse[16] = "\0";
 
@@ -23,28 +26,27 @@ void joinCommand(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP
         }
         else
         {
-            if (sscanf(buffer, "%s %s %s", app->ext.id, app->ext.ip, app->ext.port) == 3)
+            if (sscanf(buffer, "%s %s %s", temporaryExtern->id, temporaryExtern->ip, temporaryExtern->port) == 3)
             {
-                if ((app->ext.socket.fd = connectTcpClient(app)) > 0) // join network by connecting to another node
+                if ((temporaryExtern->socket.fd = connectTcpClient(app)) > 0) // join network by connecting to another node
                 {
-                    memset(app->ext.socket.buffer, 0, MAX_BUFFER_SIZE);
-                    sprintf(app->ext.socket.buffer, "NEW %s %s %s\n", app->self.id, app->self.ip, app->self.port);
-                    if (writeTcp(app->ext.socket) < 0)
+                    memset(temporaryExtern->socket.buffer, 0, MAX_BUFFER_SIZE);
+                    sprintf(temporaryExtern->socket.buffer, "NEW %s %s %s\n", app->self.id, app->self.ip, app->self.port);
+                    if (writeTcp(temporaryExtern->socket) < 0)
                     {
                         printf("Can't write when I'm trying to connect\n");
-                        memmove(&app->ext, &app->self, sizeof(NODE));
+                        memmove(&(*temporaryExtern), &app->self, sizeof(NODE));
                         return;
                     }
-                    memset(app->ext.socket.buffer, 0, MAX_BUFFER_SIZE);
+                    memset(temporaryExtern->socket.buffer, 0, MAX_BUFFER_SIZE);
                     // adicionar externo aos vizinhos
-                    updateExpeditionTable(app, app->ext.id, app->ext.id, app->ext.socket.fd);
                     regNetwork(app, currentSockets, regIP, regUDP, net);
-                    FD_SET(app->ext.socket.fd, currentSockets);
+                    FD_SET(temporaryExtern->socket.fd, currentSockets);
                 }
                 else
                 {
                     printf("Couldn't connect\n");
-                    memmove(&app->ext, &app->self, sizeof(NODE));
+                    memmove(&(*temporaryExtern), &app->self, sizeof(NODE));
                 }
             }
         }
@@ -262,13 +264,13 @@ void showRoutingCommand(AppNode *app)
     }
 }
 
-void commandMultiplexer(AppNode *app, enum commands cmd, fd_set *currentSockets, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName)
+void commandMultiplexer(AppNode *app, NODE *temporaryExtern, enum commands cmd, fd_set *currentSockets, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName)
 {
     switch (cmd)
     {
     case JOIN:
         // Nodes's initialization
-        joinCommand(app, currentSockets, regIP, regUDP, net);
+        joinCommand(app, temporaryExtern, currentSockets, regIP, regUDP, net);
         break;
     case DJOIN:
         // Nodes's initialization
