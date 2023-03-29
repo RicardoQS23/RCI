@@ -112,6 +112,7 @@ void acceptNeighbourConnection(AppNode *app, NodeQueue *queue, fd_set *currentSo
  */
 void handleCommunication(AppNode *app, NODE *node)
 {
+    printf("recv: %s\n", node->socket.buffer);
     char buffer_cpy[MAX_BUFFER_SIZE] = "\0", *token, cmd[24];
     int numCompletedMsg, numMsgRead = 0;
     numCompletedMsg = countLFchars(node->socket.buffer);
@@ -376,19 +377,22 @@ void writeMessageToInterns(AppNode *app, char *buffer)
  */
 void promoteInternToExtern(AppNode *app)
 {
+    printf("Promoted to extern\n");
+    char buffer[MAX_BUFFER_SIZE] = "\0";
     memmove(&app->ext, &app->interns.intr[0], sizeof(NODE));
     memmove(&app->interns.intr[0], &app->interns.intr[app->interns.numIntr - 1], sizeof(NODE));
     memset(&app->interns.intr[app->interns.numIntr - 1], 0, sizeof(NODE));
     app->interns.numIntr--;
 
     sprintf(app->ext.socket.buffer, "EXTERN %s %s %s\n", app->ext.id, app->ext.ip, app->ext.port);
+    strcpy(buffer, app->ext.socket.buffer);
     if (writeTcp(app->ext.socket) < 0)
     {
         printf("Can't write when I'm trying to connect\n");
     }
-    memset(app->ext.socket.buffer, 0, MAX_BUFFER_SIZE);
 
-    writeMessageToInterns(app, app->ext.socket.buffer);
+    memset(app->ext.socket.buffer, 0, MAX_BUFFER_SIZE);
+    writeMessageToInterns(app, buffer);
 }
 
 /**
