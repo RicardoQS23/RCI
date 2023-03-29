@@ -30,8 +30,7 @@ typedef struct LinkedList
 } LinkedList;
 
 /**
- * @brief Definition of a socket, with each socket having its own buffer wich will store all information sent to said
- * socket
+ * @brief Definition of a socket, with each socket having its own buffer wich will store all information sent to it
  */
 typedef struct SOCKET
 {
@@ -145,7 +144,7 @@ void unregNetwork(AppNode *app, fd_set *currentSockets, char *regIP, char *regUD
 
                                         /* TCP COMMUNICATION RELATED FUNCTIONS */
 int openTcpServer(AppNode *app);
-int connectTcpClient(AppNode *app);
+int connectTcpClient(AppNode *app, NODE *temporaryExtern);
 int acceptTcpServer(AppNode *app);
 void acceptNeighbourConnection(AppNode *app, NodeQueue *queue, fd_set *currentSockets);
 void handleCommunication(AppNode *app, NODE *node);
@@ -157,13 +156,14 @@ int readTcp(SOCKET *socket);
 int writeTcp(SOCKET socket);
 void writeMessageToInterns(AppNode *app, char *buffer);
 void promoteInternToExtern(AppNode *app);
-void promoteTemporaryToExtern(AppNode *app, NODE *temporaryExtern);
 void connectToBackup(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets);
 
                                         /* NODE QUEUE RELATED FUNCTIONS */
 void cleanQueue(NodeQueue *queue, fd_set *currentSockets);
 void popQueue(NodeQueue *queue, fd_set *currentSockets, int pos);
 void promoteQueueToIntern(AppNode *app, NodeQueue *queue, fd_set *currentSockets, int pos);
+void promoteTemporaryToExtern(AppNode *app, NODE *temporaryExtern);
+void resetTemporaryExtern(NODE *temporaryExtern, fd_set *currentSockets);
 
                                         /* INTERRUPTION HANDLING RELATED FUNCTIONS */
 void handleInterruptions(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName);
@@ -181,13 +181,13 @@ int searchContentOnList(AppNode *app, char *name);
 void freeContentList(AppNode *app);
 
                                         /* MESSAGE HANDLING RELATED FUNCTIONS */
-
-int handleNEWmessage(AppNode *app, NodeQueue *queue, fd_set *currentSockets, int pos, char *cmd, char *token);
-void handleEXTmessage(AppNode *app, char *cmd, char *token);
-void handleQUERYmessage(AppNode *app, NODE node, char *cmd, char *token);
-void handleCONTENTmessage(AppNode *app, NODE node, char *cmd, char *token);
-void handleWITHDRAWmessage(AppNode *app, NODE node, char *cmd, char *token);
+int handleNEWmessage(AppNode *app, NodeQueue *queue, fd_set *currentSockets, int pos, char *token);
+int handleFirstEXTmessage(AppNode *app, NODE *temporaryExtern, char *token);
+void handleEXTmessage(AppNode *app, char *token);
+void handleQUERYmessage(AppNode *app, NODE node, char *token);
+void handleCONTENTmessage(AppNode *app, NODE node, char *token);
+void handleNOCONTENTmessage(AppNode *app, NODE node, char *token);
+void handleWITHDRAWmessage(AppNode *app, NODE node, char *token);
 void shareQUERYmessages(AppNode *app, NODE node, char *buffer, char *dest_id);
 void shareWITHDRAWmessages(AppNode *app, NODE node, char *token);
-void handleFirstEXTmessage(AppNode *app, NODE *temporaryExtern, char *cmd, char *token);
 #endif

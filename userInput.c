@@ -1,7 +1,7 @@
 #include "project.h"
 
 /**
- * @brief sadhjasdhkjasdjkakdaskj
+ * @brief Handles 'JOIN'command
  */
 void joinCommand(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets, char *regIP, char *regUDP, char *net)
 {
@@ -28,31 +28,35 @@ void joinCommand(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets, ch
         {
             if (sscanf(buffer, "%s %s %s", temporaryExtern->id, temporaryExtern->ip, temporaryExtern->port) == 3)
             {
-                if ((temporaryExtern->socket.fd = connectTcpClient(app)) > 0) // join network by connecting to another node
+                if ((temporaryExtern->socket.fd = connectTcpClient(app, temporaryExtern)) > 0) // join network by connecting to another node
                 {
                     memset(temporaryExtern->socket.buffer, 0, MAX_BUFFER_SIZE);
                     sprintf(temporaryExtern->socket.buffer, "NEW %s %s %s\n", app->self.id, app->self.ip, app->self.port);
+                    printf("sent: %s\n", temporaryExtern->socket.buffer);
                     if (writeTcp(temporaryExtern->socket) < 0)
                     {
                         printf("Can't write when I'm trying to connect\n");
-                        memmove(&(*temporaryExtern), &app->self, sizeof(NODE));
+                        resetTemporaryExtern(temporaryExtern, currentSockets);
                         return;
                     }
                     memset(temporaryExtern->socket.buffer, 0, MAX_BUFFER_SIZE);
-                    // adicionar externo aos vizinhos
+                    printf("temporary.extern.id: %s\ntemporary.extern.ip: %s\ntemporary.extern.port: %s\ntemporary.extern.fd: %d\ntemporary.extern.buffer: %s\n", temporaryExtern->id, temporaryExtern->ip, temporaryExtern->port, temporaryExtern->socket.fd, temporaryExtern->socket.buffer);
                     regNetwork(app, currentSockets, regIP, regUDP, net);
                     FD_SET(temporaryExtern->socket.fd, currentSockets);
                 }
                 else
                 {
                     printf("Couldn't connect\n");
-                    memmove(&(*temporaryExtern), &app->self, sizeof(NODE));
+                    memmove(temporaryExtern, &app->self, sizeof(NODE));
                 }
             }
         }
     }
 }
 
+/**
+ * @brief Handles 'DJOIN'command
+ */
 void djoinCommand(AppNode *app, fd_set *currentSockets, char *bootID, char *bootIP, char *bootTCP)
 {
     memmove(&app->ext, &app->self, sizeof(NODE));
@@ -61,7 +65,7 @@ void djoinCommand(AppNode *app, fd_set *currentSockets, char *bootID, char *boot
     strcpy(app->ext.ip, bootIP);
     strcpy(app->ext.port, bootTCP);
 
-    if ((app->ext.socket.fd = connectTcpClient(app)) > 0) // join network by connecting to another node
+    if ((app->ext.socket.fd = connectTcpClient(app, &app->ext)) > 0) // join network by connecting to another node
     {
         memset(app->ext.socket.buffer, 0, MAX_BUFFER_SIZE);
         sprintf(app->ext.socket.buffer, "NEW %s %s %s\n", app->self.id, app->self.ip, app->self.port);
@@ -81,6 +85,9 @@ void djoinCommand(AppNode *app, fd_set *currentSockets, char *bootID, char *boot
     }
 }
 
+/**
+ * @brief Handles 'LEAVE'command
+ */
 void leaveCommand(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP, char *net)
 {
     clearExpeditionTable(app);
@@ -104,6 +111,9 @@ void leaveCommand(AppNode *app, fd_set *currentSockets, char *regIP, char *regUD
     memmove(&app->bck, &app->self, sizeof(NODE));
 }
 
+/**
+ * @brief Handles command 'CREATE'
+ */
 void createCommand(AppNode *app, char *name)
 {
     if (searchContentOnList(app, name) == 0)
@@ -135,6 +145,9 @@ void createCommand(AppNode *app, char *name)
         printf("Name's already on Content List\n");
 }
 
+/**
+ * @brief Handles command 'LOAD'
+ */
 void loadCommand(AppNode *app, char *fileName)
 {
     FILE *fp = NULL;
@@ -158,11 +171,17 @@ void loadCommand(AppNode *app, char *fileName)
     fclose(fp);
 }
 
+/**
+ * @brief Handles command 'CLEAR NAMES'
+ */
 void clearNamesCommand(AppNode *app)
 {
     freeContentList(app);
 }
 
+/**
+ * @brief Handles command 'CLEAR ROUTING'
+ */
 void clearRoutingCommand(AppNode *app)
 {
     char id[3];
@@ -173,6 +192,9 @@ void clearRoutingCommand(AppNode *app)
     }
 }
 
+/**
+ * @brief Handles 'DELETE'command
+ */
 void deleteCommand(AppNode *app, char *name)
 {
     LinkedList *ptr, *aux, *head;
@@ -200,6 +222,9 @@ void deleteCommand(AppNode *app, char *name)
     }
 }
 
+/**
+ * @brief Handles 'GET'command
+ */
 void getCommand(AppNode *app, char *dest, char *name)
 {
     char buffer[MAX_BUFFER_SIZE] = "\0";
@@ -227,6 +252,9 @@ void getCommand(AppNode *app, char *dest, char *name)
     }
 }
 
+/**
+ * @brief Handles 'SHOW TOPOLOGY' command
+ */
 void showTopologyCommand(AppNode *app)
 {
     printf("---- Self info ----\n");
@@ -240,6 +268,9 @@ void showTopologyCommand(AppNode *app)
         printf("%s %s %s\n", app->interns.intr[i].id, app->interns.intr[i].ip, app->interns.intr[i].port);
 }
 
+/**
+ * @brief Handles 'SHOW NAMES'command
+ */
 void showNamesCommand(AppNode *app)
 {
     LinkedList *aux;
@@ -250,6 +281,9 @@ void showNamesCommand(AppNode *app)
     }
 }
 
+/**
+ * @brief Handles'SHOW ROUTING' command
+ */
 void showRoutingCommand(AppNode *app)
 {
     char id[3];
@@ -264,6 +298,9 @@ void showRoutingCommand(AppNode *app)
     }
 }
 
+/**
+ * @brief Command multiplexer
+ */
 void commandMultiplexer(AppNode *app, NODE *temporaryExtern, enum commands cmd, fd_set *currentSockets, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName)
 {
     switch (cmd)

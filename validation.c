@@ -1,10 +1,13 @@
 #include "project.h"
 
+/**
+ * @brief App initialization
+ */
 void init(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, char *regIP, char *regUDP, char **argv)
 {
     if (validateCommandLine(argv) < 0)
     {
-        printf("wrong inputs ./cot [IP] [TCP] [regIP] [regUDP]\n");
+        printf("invalid inputs ./cot [IP] [TCP] [regIP] [regUDP]\n");
         exit(1);
     }
     memset(app, 0, sizeof(struct AppNode));
@@ -21,6 +24,9 @@ void init(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, char *regIP, ch
     temporaryExtern->socket.fd = -1;
 }
 
+/**
+ * @brief This function counts the number of completed messages acording to the number  of '\n' characters 
+ */
 int countLFchars(char *buffer)
 {
     int counter = 0;
@@ -32,6 +38,9 @@ int countLFchars(char *buffer)
     return counter;
 }
 
+/**
+ * @brief This function validates the user's input
+ */
 int validateUserInput(AppNode *app, enum commands *cmd, char *buffer, char *bootIP,  char *name, char *dest, char *bootID, char *bootTCP, char *net, char *fileName)
 {
     char *token;
@@ -119,6 +128,9 @@ int validateUserInput(AppNode *app, enum commands *cmd, char *buffer, char *boot
 
         if ((token = strtok(NULL, " \n\r\t")) == NULL)
             return -1;
+
+        if (strlen(token) > 100)
+            return -1;
         strcpy(name, token);
         break;
     case 5:
@@ -177,7 +189,9 @@ int validateUserInput(AppNode *app, enum commands *cmd, char *buffer, char *boot
     return 0;
 }
 
-
+/**
+ * @brief Command line validation. Returns -1 if the input is invalid
+ */
 int validateCommandLine(char **cmdLine)
 {
     // Check machineIP
@@ -195,7 +209,9 @@ int validateCommandLine(char **cmdLine)
     return 0;
 }
 
-
+/**
+ * @brief Validates if the characters are digits, returning 0 if at least one is not
+ */
 int validate_number(char *str)
 {
     while (*str != '\0')
@@ -207,6 +223,9 @@ int validate_number(char *str)
     return 1;
 }
 
+/**
+ * @brief Validates the Ip adress, returning -1 if its invalid and 0 if valid.
+ */
 int validate_ip(char *ip)
 { // check whether the IP is valid or not
     int num, dots = 0;
@@ -239,7 +258,9 @@ int validate_ip(char *ip)
     return 0;
 }
 
-
+/**
+ * @brief Auxiliary function used to check if the input command is one of the commands present in the 'cmds' array
+ */
 int compare_cmd(char *cmdLine)
 {
     char cmds[15][7] = {
@@ -267,6 +288,9 @@ int compare_cmd(char *cmdLine)
     return -1;
 }
 
+/**
+ * @brief function used as a complement to the strtok
+ */
 char *advancePointer(char *token)
 {
     return token + strlen(token) + 1;

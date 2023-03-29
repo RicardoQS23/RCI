@@ -2,7 +2,7 @@
 
 /**
  * @brief This function is responsible for the handling of all interruptions. These interruptions can be originated from
- * several sources, those being user input, server comunication, extern, interns and from the node queue. The functions
+ * several sources, those being user input, server comunication, extern, interns, temporary extern and from the node queue. This function
  * calls several other functions, one for each of the possible sources mentioned.
  */
 void handleInterruptions(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName)
@@ -16,7 +16,7 @@ void handleInterruptions(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, 
 }
 
 /**
- * @brief This function handles User-related interruptions 
+ * @brief This function handles user-related interruptions
  */
 void handleUserInputInterruption(AppNode *app, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName)
 {
@@ -24,7 +24,7 @@ void handleUserInputInterruption(AppNode *app, NODE *temporaryExtern, fd_set *re
     {
         char buffer[MAX_BUFFER_SIZE] = "\0";
         FD_CLR(0, readSockets);
-        if(fgets(buffer, MAX_BUFFER_SIZE, stdin) == NULL)
+        if (fgets(buffer, MAX_BUFFER_SIZE, stdin) == NULL)
         {
             printf("Couldn't read user input\n");
             return;
@@ -39,7 +39,7 @@ void handleUserInputInterruption(AppNode *app, NODE *temporaryExtern, fd_set *re
 }
 
 /**
- * @brief This function handles Server-related interruptions
+ * @brief This function handles server-related interruptions
  */
 void handleServerInterruption(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets)
 {
@@ -51,14 +51,14 @@ void handleServerInterruption(AppNode *app, NodeQueue *queue, fd_set *readSocket
 }
 
 /**
- * @brief This function handles Extern-related interruptions 
+ * @brief This function handles extern-related interruptions
  */
 void handleExtInterruption(AppNode *app, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets)
 {
-    if (FD_ISSET(app->ext.socket.fd, readSockets)) // ext talks with us
+    if (FD_ISSET(app->ext.socket.fd, readSockets))
     {
         FD_CLR(app->ext.socket.fd, readSockets);
-        if (readTcp(&(app->ext.socket)) < 0) // conexao fechou e temos de estabelecer nova
+        if (readTcp(&(app->ext.socket)) < 0)
         {
             closedExtConnection(app, temporaryExtern, currentSockets);
         }
@@ -70,7 +70,7 @@ void handleExtInterruption(AppNode *app, NODE *temporaryExtern, fd_set *readSock
 }
 
 /**
- * @brief This function handles Intern-related interruptions 
+ * @brief This function handles intern-related interruptions
  */
 void handleInternInterruptions(AppNode *app, fd_set *readSockets, fd_set *currentSockets)
 {
@@ -92,7 +92,7 @@ void handleInternInterruptions(AppNode *app, fd_set *readSockets, fd_set *curren
 }
 
 /**
- * @brief This function handles Queue-related interruptions 
+ * @brief This function handles queue-related interruptions
  */
 void handleQueueInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets)
 {
@@ -115,21 +115,31 @@ void handleQueueInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSocket
     }
 }
 
+/**
+ * @brief This function handles temporary extern-related interruptions
+ */
 void handleTemporaryExternInterruption(AppNode *app, NODE *temporaryNode, fd_set *readSockets, fd_set *currentSockets)
 {
-    if(FD_ISSET(temporaryNode->socket.fd, readSockets))
+    if (FD_ISSET(temporaryNode->socket.fd, readSockets))
     {
         FD_CLR(temporaryNode->socket.fd, readSockets);
         if (readTcp(&(temporaryNode->socket)) < 0)
+        {
+            resetTemporaryExtern(temporaryNode, currentSockets);
+            memmove(&app->bck, &app->self, sizeof(NODE));
+            if (app->interns.numIntr > 0) // escolhe um dos internos para ser o seu novo externo
             {
-                FD_CLR(temporaryNode->socket.fd, currentSockets);
-                close(temporaryNode->socket.fd);
-                temporaryNode->socket.fd = -1;
-                memset(temporaryNode->socket.buffer, 0, MAX_BUFFER_SIZE);
+                // promove interno a externo e retira-o da lista de internos
+                promoteInternToExtern(app);
             }
-            else
+            else // ficou sozinho na rede
             {
-                temporaryExternCommunication(app, temporaryNode, currentSockets);
+                memmove(&app->ext, &app->self, sizeof(NODE));
             }
+        }
+        else
+        {
+            temporaryExternCommunication(app, temporaryNode, currentSockets);
+        }
     }
 }

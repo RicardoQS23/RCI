@@ -10,7 +10,7 @@ void updateExpeditionTable(AppNode *app, char *dest_id, char *neigh_id, int neig
 }
 
 /**
- * @brief This function table cleans the expedition when the CLEAR ROUTING or the LEAVE comand is issued 
+ * @brief This function cleans the expedition table when the 'CLEAR ROUTING' or the 'LEAVE' command is issued 
  */
 void clearExpeditionTable(AppNode *app)
 {
@@ -23,7 +23,7 @@ void clearExpeditionTable(AppNode *app)
 }
 
 /**
- * @brief This function searches for the content "name" in the content list of a node
+ * @brief This function searches for the content "name" in the contentList of the app, returning 1 if it's present
  */
 int searchContentOnList(AppNode *app, char *name)
 {
@@ -39,7 +39,7 @@ int searchContentOnList(AppNode *app, char *name)
 }
 
 /**
- * @brief This function clears the content list of a node 
+ * @brief This function clears the content list of the app 
  */
 void freeContentList(AppNode *app)
 {

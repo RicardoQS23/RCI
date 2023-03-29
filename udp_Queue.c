@@ -1,5 +1,8 @@
 #include "project.h"
 
+/**
+ * @brief In this function, a random node from the node's list is chosen to be connected to the entering node
+ */
 int chooseRandomNodeToConnect(char *buffer, char *my_id)
 {
     char buffer_cpy[MAX_BUFFER_SIZE];
@@ -41,6 +44,9 @@ int chooseRandomNodeToConnect(char *buffer, char *my_id)
     return nodeOnNet;
 }
 
+/**
+ * @brief 
+ */
 void udpClient(char *buffer, char *ip, char *port, char *net)
 {
     int errcode, fd;
@@ -89,6 +95,9 @@ void udpClient(char *buffer, char *ip, char *port, char *net)
     close(fd);
 }
 
+/**
+ * @brief This function registers the node on the network
+ */
 void regNetwork(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP, char *net)
 {
     char buffer[64] = "\0";
@@ -97,6 +106,9 @@ void regNetwork(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP,
     FD_SET(app->self.socket.fd, currentSockets);
 }
 
+/**
+ * @brief This function unregisters the node from the network
+ */
 void unregNetwork(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP, char *net)
 {
     char buffer[32] = "\0"; 
@@ -105,6 +117,9 @@ void unregNetwork(AppNode *app, fd_set *currentSockets, char *regIP, char *regUD
     FD_CLR(app->self.socket.fd, currentSockets);
 }
 
+/**
+ * @brief This function clears the queue 
+ */
 void cleanQueue(NodeQueue *queue, fd_set *currentSockets)
 {
     for (int i = queue->numNodesInQueue; i >= 0; i--)
@@ -115,12 +130,16 @@ void cleanQueue(NodeQueue *queue, fd_set *currentSockets)
     memset(queue, 0, sizeof(NodeQueue));
 }
 
+/**
+ * @brief Pops the queue
+ */
 void popQueue(NodeQueue *queue, fd_set *currentSockets, int pos)
 {
     memmove(&queue->queue[pos], &queue->queue[queue->numNodesInQueue - 1], sizeof(NODE));
     memset(&queue->queue[queue->numNodesInQueue - 1], 0, sizeof(NODE));
     queue->numNodesInQueue--;
 }
+
 
 void promoteQueueToIntern(AppNode *app, NodeQueue *queue, fd_set *currentSockets, int pos)
 {
@@ -130,10 +149,23 @@ void promoteQueueToIntern(AppNode *app, NodeQueue *queue, fd_set *currentSockets
     updateExpeditionTable(app, app->interns.intr[app->interns.numIntr - 1].id, app->interns.intr[app->interns.numIntr - 1].id, app->interns.intr[app->interns.numIntr - 1].socket.fd);
 }
 
+
 void promoteTemporaryToExtern(AppNode *app, NODE *temporaryExtern)
 {
     memmove(&app->ext, &(*temporaryExtern), sizeof(NODE));
     temporaryExtern->socket.fd = -1;
     memset(temporaryExtern->socket.buffer, 0, MAX_BUFFER_SIZE);
     updateExpeditionTable(app, app->ext.id, app->ext.id, app->ext.socket.fd);
+}
+
+
+/**
+ * @brief resets the temporary Extern node
+ */
+void resetTemporaryExtern(NODE *temporaryNode, fd_set *currentSockets)
+{
+    FD_CLR(temporaryNode->socket.fd, currentSockets);
+    close(temporaryNode->socket.fd);
+    temporaryNode->socket.fd = -1;
+    memset(temporaryNode->socket.buffer, 0, MAX_BUFFER_SIZE);
 }

@@ -1,10 +1,11 @@
 #include "project.h"
 
+/**
+ * ./cot 172.26.180.206 59002 193.136.138.142 59000
+ * ./cot 172.26.180.206 59002 193.136.138.142 59000
+ * djoin 008 20 11 127.0.0.1 59011
+**/
 int main(int argc, char *argv[]){
-    //./cot 172.26.180.206 59002 193.136.138.142 59000
-    //./cot 127.0.0.1 59009 193.136.138.142 59000
-    // djoin 008 20 11 127.0.0.1 59011
-
     AppNode app;
     NodeQueue queue;
     NODE temporaryExtern;
@@ -24,7 +25,6 @@ int main(int argc, char *argv[]){
         readSockets = currentSockets;
         memset((void *)&timeout, 0, sizeof(timeout));
         timeout.tv_sec = 2;
-
         counter = select(FD_SETSIZE, &readSockets, (fd_set *)NULL, (fd_set *)NULL, (struct timeval *)&timeout);
        switch (counter)
         {
