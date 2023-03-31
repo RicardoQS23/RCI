@@ -112,9 +112,9 @@ enum commands
 };
 
                                         /*  USER INPUT RELATED FUNCTIONS */
-void joinCommand(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets, char *regIP, char *regUDP, char *net);
-void djoinCommand(AppNode *app, fd_set *currentSockets, NODE *temporaryExtern, char *bootID, char *bootIP, char *bootTCP);
-void leaveCommand(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP, char *net);
+void joinCommand(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets, char *regIP, char *regUDP, char *net, int *joinFlag);
+void djoinCommand(AppNode *app, fd_set *currentSockets, NODE *temporaryExtern, char *bootID, char *bootIP, char *bootTCP, int *joinFlag);
+void leaveCommand(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP, char *net, int *joinFlag);
 void createCommand(AppNode *app, char *name);
 void deleteCommand(AppNode *app, char *name);
 void getCommand(AppNode *app, char *dest, char *name);
@@ -124,11 +124,11 @@ void showRoutingCommand(AppNode *app);
 void clearNamesCommand(AppNode *app);
 void clearRoutingCommand(AppNode *app);
 void loadCommand(AppNode *app, char *fileName);
-void commandMultiplexer(AppNode *app, NODE *temporaryExtern, enum commands cmd, fd_set *currentSockets, char *bootIP,char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName);
+void commandMultiplexer(AppNode *app, NODE *temporaryExtern, enum commands cmd, fd_set *currentSockets, char *bootIP,char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName, int *joinFlag);
 
                                         /*  VALIDATION RELATED FUNCTIONS */
 void init(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, char *regIP, char *regUDP, char **argv, int argc);
-int validateUserInput(AppNode *app, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *fileName);
+int validateUserInput(AppNode *app, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *fileName, int joinFlag);
 int validateCommandLine(char **cmdLine, int argc);
 int validate_number(char *str);
 int validate_ip(char *ip);
@@ -166,8 +166,8 @@ void promoteTemporaryToExtern(AppNode *app, NODE *temporaryExtern);
 void resetTemporaryExtern(NODE *temporaryExtern, fd_set *currentSockets);
 
                                         /* INTERRUPTION HANDLING RELATED FUNCTIONS */
-void handleInterruptions(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName);
-void handleUserInputInterruption(AppNode *app, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName);
+void handleInterruptions(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName, int *joinFlag);
+void handleUserInputInterruption(AppNode *app, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName, int *joinFlag);
 void handleServerInterruption(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets);
 void handleExtInterruption(AppNode *app, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets);
 void handleInternInterruptions(AppNode *app, fd_set *readSockets, fd_set *currentSockets);

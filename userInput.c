@@ -3,9 +3,10 @@
 /**
  * @brief Handles 'JOIN'command
  */
-void joinCommand(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets, char *regIP, char *regUDP, char *net)
+void joinCommand(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets, char *regIP, char *regUDP, char *net, int *joinFlag)
 {
     char buffer[MAX_BUFFER_SIZE] = "\0", serverResponse[16] = "\0";
+    *joinFlag = 1;
 
     memmove(&app->ext, &app->self, sizeof(NODE));
     memmove(&app->bck, &app->self, sizeof(NODE));
@@ -55,8 +56,9 @@ void joinCommand(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets, ch
 /**
  * @brief Handles 'DJOIN'command
  */
-void djoinCommand(AppNode *app, fd_set *currentSockets, NODE *temporaryExtern, char *bootID, char *bootIP, char *bootTCP)
+void djoinCommand(AppNode *app, fd_set *currentSockets, NODE *temporaryExtern, char *bootID, char *bootIP, char *bootTCP, int *joinFlag)
 {
+    *joinFlag = 1;
     memmove(&app->ext, &app->self, sizeof(NODE));
     memmove(&app->bck, &app->self, sizeof(NODE));
     strcpy(temporaryExtern->id, bootID);
@@ -87,8 +89,9 @@ void djoinCommand(AppNode *app, fd_set *currentSockets, NODE *temporaryExtern, c
 /**
  * @brief Handles 'LEAVE'command
  */
-void leaveCommand(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP, char *net)
+void leaveCommand(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP, char *net, int *joinFlag)
 {
+    *joinFlag = 0;
     clearExpeditionTable(app);
     unregNetwork(app, currentSockets, regIP, regUDP, net);
     // Closes sockets
@@ -337,15 +340,15 @@ void showRoutingCommand(AppNode *app)
 /**
  * @brief Command multiplexer
  */
-void commandMultiplexer(AppNode *app, NODE *temporaryExtern, enum commands cmd, fd_set *currentSockets, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName)
+void commandMultiplexer(AppNode *app, NODE *temporaryExtern, enum commands cmd, fd_set *currentSockets, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName, int *joinFlag)
 {
     switch (cmd)
     {
     case JOIN:
-        joinCommand(app, temporaryExtern, currentSockets, regIP, regUDP, net);
+        joinCommand(app, temporaryExtern, currentSockets, regIP, regUDP, net, joinFlag);
         break;
     case DJOIN:
-        djoinCommand(app, currentSockets, temporaryExtern, bootID, bootIP, bootTCP);
+        djoinCommand(app, currentSockets, temporaryExtern, bootID, bootIP, bootTCP, joinFlag);
         break;
     case CREATE:
         createCommand(app, name);
@@ -366,7 +369,7 @@ void commandMultiplexer(AppNode *app, NODE *temporaryExtern, enum commands cmd, 
         showRoutingCommand(app);
         break;
     case LEAVE:
-        leaveCommand(app, currentSockets, regIP, regUDP, net);
+        leaveCommand(app, currentSockets, regIP, regUDP, net, joinFlag);
         break;
     case CLEAR_NAMES:
         clearNamesCommand(app);

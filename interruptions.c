@@ -5,9 +5,9 @@
  * several sources, those being user input, server comunication, extern, interns, temporary extern and from the node queue. This function
  * calls several other functions, one for each of the possible sources mentioned.
  */
-void handleInterruptions(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName)
+void handleInterruptions(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName, int *joinFLag)
 {
-    handleUserInputInterruption(app, temporaryExtern, readSockets, currentSockets, cmd, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, fileName);
+    handleUserInputInterruption(app, temporaryExtern, readSockets, currentSockets, cmd, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, fileName, joinFLag);
     handleServerInterruption(app, queue, readSockets, currentSockets);
     handleExtInterruption(app, temporaryExtern, readSockets, currentSockets);
     handleInternInterruptions(app, readSockets, currentSockets);
@@ -18,7 +18,7 @@ void handleInterruptions(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, 
 /**
  * @brief This function handles user-related interruptions
  */
-void handleUserInputInterruption(AppNode *app, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName)
+void handleUserInputInterruption(AppNode *app, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName, int *joinFlag)
 {
     if (FD_ISSET(0, readSockets))
     {
@@ -29,12 +29,12 @@ void handleUserInputInterruption(AppNode *app, NODE *temporaryExtern, fd_set *re
             printf("Couldn't read user input\n");
             return;
         }
-        if (validateUserInput(app, cmd, buffer, bootIP, name, dest, bootID, bootTCP, net, fileName) < 0)
+        if (validateUserInput(app, cmd, buffer, bootIP, name, dest, bootID, bootTCP, net, fileName, *joinFlag) < 0)
         {
             printf("bad user input\n");
             return;
         }
-        commandMultiplexer(app, temporaryExtern, *cmd, currentSockets, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, fileName);
+        commandMultiplexer(app, temporaryExtern, *cmd, currentSockets, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, fileName, joinFlag);
     }
 }
 

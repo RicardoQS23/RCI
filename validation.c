@@ -55,7 +55,7 @@ int countLFchars(char *buffer)
 /**
  * @brief This function validates the user's input
  */
-int validateUserInput(AppNode *app, enum commands *cmd, char *buffer, char *bootIP,  char *name, char *dest, char *bootID, char *bootTCP, char *net, char *fileName)
+int validateUserInput(AppNode *app, enum commands *cmd, char *buffer, char *bootIP,  char *name, char *dest, char *bootID, char *bootTCP, char *net, char *fileName, int joinFlag)
 {
     char *token;
     int cmd_code;
@@ -63,6 +63,16 @@ int validateUserInput(AppNode *app, enum commands *cmd, char *buffer, char *boot
         return -1;
         
     cmd_code = compare_cmd(token);
+    if(cmd_code == 0 && joinFlag == 1)
+    {
+        printf("Can't repeat join command\n");
+        return -1;
+    }
+    if(cmd_code == 1 && joinFlag == 1)
+    {
+        printf("Can't repeat djoin command\n");
+        return -1;
+    }
     switch (cmd_code)
     {
     case 0: // Join

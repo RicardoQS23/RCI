@@ -10,7 +10,7 @@ int main(int argc, char *argv[]){
     NodeQueue queue;
     NODE temporaryExtern;
     fd_set readSockets, currentSockets;
-    int counter = 0;
+    int counter = 0, joinFlag = 0;
     char net[4] = "\0", name[100] = "\0", dest[16] = "\0", bootIP[16] = "\0", bootID[3] = "\0", bootTCP[6] = "\0", fileName[24] = "\0", regIP[16] = "\0", regUDP[6] = "\0";
     struct timeval timeout;
     enum commands cmd;
@@ -43,7 +43,7 @@ int main(int argc, char *argv[]){
             exit(1);
 
         default:
-            handleInterruptions(&app, &queue, &temporaryExtern, &readSockets, &currentSockets, &cmd, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, fileName);
+            handleInterruptions(&app, &queue, &temporaryExtern, &readSockets, &currentSockets, &cmd, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, fileName, &joinFlag);
             break;
         }
         counter = 0;
