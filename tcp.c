@@ -43,7 +43,7 @@ int openTcpServer(AppNode *app)
 /**
  * @brief This function is used to connect to a client in the Tcp server
  */
-int connectTcpClient(AppNode *app, NODE *temporaryExtern)
+int connectTcpClient(NODE *temporaryExtern)
 {
     int fd;
     struct addrinfo hints, *res;
@@ -112,7 +112,6 @@ void acceptNeighbourConnection(AppNode *app, NodeQueue *queue, fd_set *currentSo
  */
 void handleCommunication(AppNode *app, NODE *node)
 {
-    printf("recv: %s\n", node->socket.buffer);
     char buffer_cpy[MAX_BUFFER_SIZE] = "\0", *token, cmd[24];
     int numCompletedMsg, numMsgRead = 0;
     numCompletedMsg = countLFchars(node->socket.buffer);
@@ -149,7 +148,7 @@ void handleCommunication(AppNode *app, NODE *node)
 /**
  * @brief Handles comunication for the nodes that are still on the queue
  */
-void queueCommunication(AppNode *app, NodeQueue *queue, fd_set *currentSockets, int pos)
+void queueCommunication(AppNode *app, NodeQueue *queue, int pos)
 {
     char buffer_cpy[MAX_BUFFER_SIZE] = "\0", *token, cmd[24];
     int numCompletedMsg, numMsgRead = 0, promotedFlag = 0;
@@ -165,7 +164,7 @@ void queueCommunication(AppNode *app, NodeQueue *queue, fd_set *currentSockets, 
         strcpy(cmd, token);
         cmd[strcspn(cmd, " ")] = '\0';
         if (strcmp(cmd, "NEW") == 0)
-            promotedFlag = handleNEWmessage(app, queue, currentSockets, pos, token);
+            promotedFlag = handleNEWmessage(app, queue, pos, token);
         token = advancePointer(token);
         token = strtok(token, "\n");
         numMsgRead++;
@@ -193,7 +192,7 @@ void queueCommunication(AppNode *app, NodeQueue *queue, fd_set *currentSockets, 
 /**
  * @brief This function handles the first 'EXTERN' msg after a connect operation. If there is no connection made the temporary extern node is discarded
  */
-void temporaryExternCommunication(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets)
+void temporaryExternCommunication(AppNode *app, NODE *temporaryExtern)
 {
     char buffer_cpy[MAX_BUFFER_SIZE] = "\0", *token, cmd[24];
     int numCompletedMsg, numMsgRead = 0, promotedFlag = 0;
@@ -203,7 +202,6 @@ void temporaryExternCommunication(AppNode *app, NODE *temporaryExtern, fd_set *c
 
     strcpy(buffer_cpy, temporaryExtern->socket.buffer);
     token = strtok(buffer_cpy, "\n");
-
     while (numMsgRead < numCompletedMsg)
     {
         strcpy(cmd, token);
@@ -233,7 +231,6 @@ void temporaryExternCommunication(AppNode *app, NODE *temporaryExtern, fd_set *c
  */
 void closedExtConnection(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets)
 {
-    printf("CLOSED EXT CONNECTION!!\n");
     char buffer[64] = "\0", id[3];
     memset(buffer, 0, 64);
     sprintf(buffer, "WITHDRAW %s\n", app->ext.id);
@@ -328,6 +325,7 @@ int readTcp(SOCKET *socket)
         if (strlen(socket->buffer) + strlen(buffer_cpy) > MAX_BUFFER_SIZE)
             memset(socket->buffer, 0, MAX_BUFFER_SIZE);
         strcat(socket->buffer, buffer_cpy);
+        //printf("\033[34mrecv: %s\033[0m\n", socket->buffer);
     }
     free(buffer_cpy);
     return 0;
@@ -345,6 +343,7 @@ int writeTcp(SOCKET socket)
     while (n_totalSent < n_ToSend)
     {
         n_Sent = write(socket.fd, socket.buffer, strlen(socket.buffer));
+        //printf("\033[35msent: %s\033[0m\n", socket.buffer);
         if (n_Sent <= 0)
         {
             close(socket.fd);
@@ -377,7 +376,6 @@ void writeMessageToInterns(AppNode *app, char *buffer)
  */
 void promoteInternToExtern(AppNode *app)
 {
-    printf("Promoted to extern\n");
     char buffer[MAX_BUFFER_SIZE] = "\0";
     memmove(&app->ext, &app->interns.intr[0], sizeof(NODE));
     memmove(&app->interns.intr[0], &app->interns.intr[app->interns.numIntr - 1], sizeof(NODE));
@@ -407,7 +405,7 @@ void connectToBackup(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets
     strcpy(temporaryExtern->ip, app->bck.ip);
     strcpy(temporaryExtern->port, app->bck.port);
 
-    if ((temporaryExtern->socket.fd = connectTcpClient(app, temporaryExtern)) > 0) // join network by connecting to another node
+    if ((temporaryExtern->socket.fd = connectTcpClient(temporaryExtern)) > 0) // join network by connecting to another node
     {
         FD_SET(temporaryExtern->socket.fd, currentSockets); // sucessfully connected to ext node
         sprintf(temporaryExtern->socket.buffer, "NEW %s %s %s\n", app->self.id, app->self.ip, app->self.port);
@@ -423,7 +421,7 @@ void connectToBackup(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets
             sprintf(buffer, "EXTERN %s %s %s\n", temporaryExtern->id, temporaryExtern->ip, temporaryExtern->port);
             writeMessageToInterns(app, buffer);
         }
-        updateExpeditionTable(app, temporaryExtern->id, temporaryExtern->id, temporaryExtern->socket.fd);
+        //updateExpeditionTable(app, temporaryExtern->id, temporaryExtern->id, temporaryExtern->socket.fd);
     }
     else
     {

@@ -9,13 +9,11 @@ int main(int argc, char *argv[]){
     AppNode app;
     NodeQueue queue;
     NODE temporaryExtern;
-    char regIP[16], regUDP[6];
-    char net[4], name[16], dest[16], bootIP[16], bootID[3], bootTCP[6], fileName[24];
     fd_set readSockets, currentSockets;
     int counter = 0;
+    char net[4] = "\0", name[100] = "\0", dest[16] = "\0", bootIP[16] = "\0", bootID[3] = "\0", bootTCP[6] = "\0", fileName[24] = "\0", regIP[16] = "\0", regUDP[6] = "\0";
     struct timeval timeout;
     enum commands cmd;
-
     init(&app, &queue, &temporaryExtern, regIP, regUDP, argv, argc);
     FD_ZERO(&currentSockets);
     FD_SET(0, &currentSockets);

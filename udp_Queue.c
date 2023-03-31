@@ -47,7 +47,7 @@ int chooseRandomNodeToConnect(char *buffer, char *my_id)
 /**
  * @brief 
  */
-void udpClient(char *buffer, char *ip, char *port, char *net)
+void udpClient(char *buffer, char *ip, char *port)
 {
     int errcode, fd;
     ssize_t n;
@@ -102,7 +102,7 @@ void regNetwork(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP,
 {
     char buffer[64] = "\0";
     sprintf(buffer, "REG %s %s %s %s", net, app->self.id, app->self.ip, app->self.port);
-    udpClient(buffer, regIP, regUDP, net);
+    udpClient(buffer, regIP, regUDP);
     FD_SET(app->self.socket.fd, currentSockets);
 }
 
@@ -113,7 +113,7 @@ void unregNetwork(AppNode *app, fd_set *currentSockets, char *regIP, char *regUD
 {
     char buffer[32] = "\0"; 
     sprintf(buffer, "UNREG %s %s", net, app->self.id);
-    udpClient(buffer, regIP, regUDP, net);
+    udpClient(buffer, regIP, regUDP);
     FD_CLR(app->self.socket.fd, currentSockets);
 }
 
@@ -133,7 +133,7 @@ void cleanQueue(NodeQueue *queue, fd_set *currentSockets)
 /**
  * @brief Pops the queue
  */
-void popQueue(NodeQueue *queue, fd_set *currentSockets, int pos)
+void popQueue(NodeQueue *queue, int pos)
 {
     memmove(&queue->queue[pos], &queue->queue[queue->numNodesInQueue - 1], sizeof(NODE));
     memset(&queue->queue[queue->numNodesInQueue - 1], 0, sizeof(NODE));
@@ -141,12 +141,12 @@ void popQueue(NodeQueue *queue, fd_set *currentSockets, int pos)
 }
 
 
-void promoteQueueToIntern(AppNode *app, NodeQueue *queue, fd_set *currentSockets, int pos)
+void promoteQueueToIntern(AppNode *app, NodeQueue *queue, int pos)
 {
     app->interns.numIntr++;
     memmove(&app->interns.intr[app->interns.numIntr - 1], &queue->queue[pos], sizeof(NODE));
-    popQueue(queue, currentSockets, pos);
-    updateExpeditionTable(app, app->interns.intr[app->interns.numIntr - 1].id, app->interns.intr[app->interns.numIntr - 1].id, app->interns.intr[app->interns.numIntr - 1].socket.fd);
+    popQueue(queue, pos);
+    //updateExpeditionTable(app, app->interns.intr[app->interns.numIntr - 1].id, app->interns.intr[app->interns.numIntr - 1].id, app->interns.intr[app->interns.numIntr - 1].socket.fd);
 }
 
 
@@ -155,7 +155,7 @@ void promoteTemporaryToExtern(AppNode *app, NODE *temporaryExtern)
     memmove(&app->ext, &(*temporaryExtern), sizeof(NODE));
     temporaryExtern->socket.fd = -1;
     memset(temporaryExtern->socket.buffer, 0, MAX_BUFFER_SIZE);
-    updateExpeditionTable(app, app->ext.id, app->ext.id, app->ext.socket.fd);
+    //updateExpeditionTable(app, app->ext.id, app->ext.id, app->ext.socket.fd);
 }
 
 

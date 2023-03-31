@@ -34,7 +34,7 @@ void handleUserInputInterruption(AppNode *app, NODE *temporaryExtern, fd_set *re
             printf("bad user input\n");
             return;
         }
-        commandMultiplexer(app, temporaryExtern, *cmd, currentSockets, buffer, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, fileName);
+        commandMultiplexer(app, temporaryExtern, *cmd, currentSockets, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, fileName);
     }
 }
 
@@ -105,11 +105,11 @@ void handleQueueInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSocket
             {
                 FD_CLR(queue->queue[i].socket.fd, currentSockets);
                 close(queue->queue[i].socket.fd);
-                popQueue(queue, currentSockets, i);
+                popQueue(queue, i);
             }
             else
             {
-                queueCommunication(app, queue, currentSockets, i);
+                queueCommunication(app, queue, i);
             }
         }
     }
@@ -139,7 +139,7 @@ void handleTemporaryExternInterruption(AppNode *app, NODE *temporaryNode, fd_set
         }
         else
         {
-            temporaryExternCommunication(app, temporaryNode, currentSockets);
+            temporaryExternCommunication(app, temporaryNode);
         }
     }
 }

@@ -2,7 +2,7 @@
 CC = gcc
 
 # compiler flags
-CFLAGS = -g -Wall
+CFLAGS = -Wall -Wextra
 
 # source files
 SRCS = project.c userInput.c validation.c udp_Queue.c tcp.c interruptions.c exp_Content.c messageHandling.c

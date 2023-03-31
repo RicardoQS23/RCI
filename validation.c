@@ -36,7 +36,7 @@ void init(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, char *regIP, ch
 int countLFchars(char *buffer)
 {
     int counter = 0;
-    for(int i = 0; i < strlen(buffer); i++)
+    for(int i = 0; i < (int)strlen(buffer); i++)
     {
         if(buffer[i] == '\n')
             counter++;

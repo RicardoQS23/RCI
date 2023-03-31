@@ -1,7 +1,7 @@
 #ifndef _PROJECT_
 #define _PROJECT_
 
-#define MAX_BUFFER_SIZE 1024
+#define MAX_BUFFER_SIZE 248
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -113,7 +113,7 @@ enum commands
 
                                         /*  USER INPUT RELATED FUNCTIONS */
 void joinCommand(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets, char *regIP, char *regUDP, char *net);
-void djoinCommand(AppNode *app, fd_set *currentSockets, char *bootID, char *bootIP, char *bootTCP);
+void djoinCommand(AppNode *app, fd_set *currentSockets, NODE *temporaryExtern, char *bootID, char *bootIP, char *bootTCP);
 void leaveCommand(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP, char *net);
 void createCommand(AppNode *app, char *name);
 void deleteCommand(AppNode *app, char *name);
@@ -124,7 +124,7 @@ void showRoutingCommand(AppNode *app);
 void clearNamesCommand(AppNode *app);
 void clearRoutingCommand(AppNode *app);
 void loadCommand(AppNode *app, char *fileName);
-void commandMultiplexer(AppNode *app, NODE *temporaryExtern, enum commands cmd, fd_set *currentSockets, char *buffer, char *bootIP,char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName);
+void commandMultiplexer(AppNode *app, NODE *temporaryExtern, enum commands cmd, fd_set *currentSockets, char *bootIP,char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName);
 
                                         /*  VALIDATION RELATED FUNCTIONS */
 void init(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, char *regIP, char *regUDP, char **argv, int argc);
@@ -138,18 +138,18 @@ char *advancePointer(char *token);
 
                                         /*  UDP COMMUNICATION RELATED FUNCTIONS */
 int chooseRandomNodeToConnect(char *buffer, char *my_id);
-void udpClient(char *buffer, char *ip, char *port, char *net);
+void udpClient(char *buffer, char *ip, char *port);
 void regNetwork(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP, char *net);
 void unregNetwork(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP, char *net);
 
                                         /* TCP COMMUNICATION RELATED FUNCTIONS */
 int openTcpServer(AppNode *app);
-int connectTcpClient(AppNode *app, NODE *temporaryExtern);
+int connectTcpClient(NODE *temporaryExtern);
 int acceptTcpServer(AppNode *app);
 void acceptNeighbourConnection(AppNode *app, NodeQueue *queue, fd_set *currentSockets);
 void handleCommunication(AppNode *app, NODE *node);
-void queueCommunication(AppNode *app, NodeQueue *queue, fd_set *currentSockets, int pos);
-void temporaryExternCommunication(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets);
+void queueCommunication(AppNode *app, NodeQueue *queue, int pos);
+void temporaryExternCommunication(AppNode *app, NODE *temporaryExtern);
 void closedExtConnection(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets);
 void closedIntConnection(AppNode *app, fd_set *currentSockets, int i);
 int readTcp(SOCKET *socket);
@@ -160,8 +160,8 @@ void connectToBackup(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets
 
                                         /* NODE QUEUE RELATED FUNCTIONS */
 void cleanQueue(NodeQueue *queue, fd_set *currentSockets);
-void popQueue(NodeQueue *queue, fd_set *currentSockets, int pos);
-void promoteQueueToIntern(AppNode *app, NodeQueue *queue, fd_set *currentSockets, int pos);
+void popQueue(NodeQueue *queue, int pos);
+void promoteQueueToIntern(AppNode *app, NodeQueue *queue, int pos);
 void promoteTemporaryToExtern(AppNode *app, NODE *temporaryExtern);
 void resetTemporaryExtern(NODE *temporaryExtern, fd_set *currentSockets);
 
@@ -181,7 +181,7 @@ int searchContentOnList(AppNode *app, char *name);
 void freeContentList(AppNode *app);
 
                                         /* MESSAGE HANDLING RELATED FUNCTIONS */
-int handleNEWmessage(AppNode *app, NodeQueue *queue, fd_set *currentSockets, int pos, char *token);
+int handleNEWmessage(AppNode *app, NodeQueue *queue, int pos, char *token);
 int handleFirstEXTmessage(AppNode *app, NODE *temporaryExtern, char *token);
 void handleEXTmessage(AppNode *app, char *token);
 void handleQUERYmessage(AppNode *app, NODE node, char *token);
