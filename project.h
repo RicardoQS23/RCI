@@ -117,7 +117,7 @@ void djoinCommand(AppNode *app, fd_set *currentSockets, NODE *temporaryExtern, c
 void leaveCommand(AppNode *app, fd_set *currentSockets, char *regIP, char *regUDP, char *net, int *joinFlag);
 void createCommand(AppNode *app, char *name);
 void deleteCommand(AppNode *app, char *name);
-void getCommand(AppNode *app, char *dest, char *name);
+void getCommand(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets, char *dest, char *name);
 void showTopologyCommand(AppNode *app);
 void showNamesCommand(AppNode *app);
 void showRoutingCommand(AppNode *app);
@@ -148,14 +148,14 @@ int connectTcpClient(NODE *temporaryExtern);
 int acceptTcpServer(AppNode *app);
 void acceptNeighbourConnection(AppNode *app, NodeQueue *queue, fd_set *currentSockets);
 void handleCommunication(AppNode *app, NODE *node);
-void queueCommunication(AppNode *app, NodeQueue *queue, int pos);
+void queueCommunication(AppNode *app, NODE *temporaryExtern, NodeQueue *queue, fd_set *currentSockets, int pos);
 void temporaryExternCommunication(AppNode *app, NODE *temporaryExtern);
 void closedExtConnection(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets);
-void closedIntConnection(AppNode *app, fd_set *currentSockets, int i);
+void closedIntConnection(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets, int i);
 int readTcp(SOCKET *socket);
 int writeTcp(SOCKET socket);
-void writeMessageToInterns(AppNode *app, char *buffer);
-void promoteInternToExtern(AppNode *app);
+void writeMessageToInterns(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets, char *buffer);
+void promoteInternToExtern(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets);
 void connectToBackup(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets);
 
                                         /* NODE QUEUE RELATED FUNCTIONS */
@@ -170,8 +170,8 @@ void handleInterruptions(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, 
 void handleUserInputInterruption(AppNode *app, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets, enum commands *cmd, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName, int *joinFlag);
 void handleServerInterruption(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets);
 void handleExtInterruption(AppNode *app, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets);
-void handleInternInterruptions(AppNode *app, fd_set *readSockets, fd_set *currentSockets);
-void handleQueueInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets);
+void handleInternInterruptions(AppNode *app, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets);
+void handleQueueInterruptions(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets);
 void handleTemporaryExternInterruption(AppNode *app, NODE *temporaryNode, fd_set *readSockets, fd_set *currentSockets);
 
                                         /* EXPEDITION TABLE AND CONTENT LIST RELATED FUNCTIONS */
@@ -181,7 +181,7 @@ int searchContentOnList(AppNode *app, char *name);
 void freeContentList(AppNode *app);
 
                                         /* MESSAGE HANDLING RELATED FUNCTIONS */
-int handleNEWmessage(AppNode *app, NodeQueue *queue, int pos, char *token);
+int handleNEWmessage(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, fd_set *currentSockets, int pos, char *token);
 int handleFirstEXTmessage(AppNode *app, NODE *temporaryExtern, char *token);
 void handleEXTmessage(AppNode *app, char *token);
 void handleQUERYmessage(AppNode *app, NODE node, char *token);

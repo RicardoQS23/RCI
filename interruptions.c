@@ -10,8 +10,8 @@ void handleInterruptions(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, 
     handleUserInputInterruption(app, temporaryExtern, readSockets, currentSockets, cmd, bootIP, name, dest, bootID, bootTCP, net, regIP, regUDP, fileName, joinFLag);
     handleServerInterruption(app, queue, readSockets, currentSockets);
     handleExtInterruption(app, temporaryExtern, readSockets, currentSockets);
-    handleInternInterruptions(app, readSockets, currentSockets);
-    handleQueueInterruptions(app, queue, readSockets, currentSockets);
+    handleInternInterruptions(app, temporaryExtern, readSockets, currentSockets);
+    handleQueueInterruptions(app, queue, temporaryExtern, readSockets, currentSockets);
     handleTemporaryExternInterruption(app, temporaryExtern, readSockets, currentSockets);
 }
 
@@ -72,7 +72,7 @@ void handleExtInterruption(AppNode *app, NODE *temporaryExtern, fd_set *readSock
 /**
  * @brief This function handles intern-related interruptions
  */
-void handleInternInterruptions(AppNode *app, fd_set *readSockets, fd_set *currentSockets)
+void handleInternInterruptions(AppNode *app, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets)
 {
     for (int i = app->interns.numIntr - 1; i >= 0; i--)
     {
@@ -81,7 +81,7 @@ void handleInternInterruptions(AppNode *app, fd_set *readSockets, fd_set *curren
             FD_CLR(app->interns.intr[i].socket.fd, readSockets);
             if (readTcp(&(app->interns.intr[i].socket)) < 0)
             {
-                closedIntConnection(app, currentSockets, i);
+                closedIntConnection(app, temporaryExtern, currentSockets, i);
             }
             else
             {
@@ -94,7 +94,7 @@ void handleInternInterruptions(AppNode *app, fd_set *readSockets, fd_set *curren
 /**
  * @brief This function handles queue-related interruptions
  */
-void handleQueueInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSockets, fd_set *currentSockets)
+void handleQueueInterruptions(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, fd_set *readSockets, fd_set *currentSockets)
 {
     for (int i = queue->numNodesInQueue - 1; i >= 0; i--)
     {
@@ -109,7 +109,7 @@ void handleQueueInterruptions(AppNode *app, NodeQueue *queue, fd_set *readSocket
             }
             else
             {
-                queueCommunication(app, queue, i);
+                queueCommunication(app, temporaryExtern, queue, currentSockets, i);
             }
         }
     }
@@ -130,7 +130,7 @@ void handleTemporaryExternInterruption(AppNode *app, NODE *temporaryNode, fd_set
             if (app->interns.numIntr > 0) // escolhe um dos internos para ser o seu novo externo
             {
                 // promove interno a externo e retira-o da lista de internos
-                promoteInternToExtern(app);
+                promoteInternToExtern(app, temporaryNode, currentSockets);
             }
             else // ficou sozinho na rede
             {

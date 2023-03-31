@@ -148,7 +148,7 @@ void handleCommunication(AppNode *app, NODE *node)
 /**
  * @brief Handles comunication for the nodes that are still on the queue
  */
-void queueCommunication(AppNode *app, NodeQueue *queue, int pos)
+void queueCommunication(AppNode *app, NODE *temporaryExtern, NodeQueue *queue, fd_set *currentSockets, int pos)
 {
     char buffer_cpy[MAX_BUFFER_SIZE] = "\0", *token, cmd[24];
     int numCompletedMsg, numMsgRead = 0, promotedFlag = 0;
@@ -164,7 +164,7 @@ void queueCommunication(AppNode *app, NodeQueue *queue, int pos)
         strcpy(cmd, token);
         cmd[strcspn(cmd, " ")] = '\0';
         if (strcmp(cmd, "NEW") == 0)
-            promotedFlag = handleNEWmessage(app, queue, pos, token);
+            promotedFlag = handleNEWmessage(app, queue, temporaryExtern, currentSockets, pos, token);
         token = advancePointer(token);
         token = strtok(token, "\n");
         numMsgRead++;
@@ -245,7 +245,7 @@ void closedExtConnection(AppNode *app, NODE *temporaryExtern, fd_set *currentSoc
         }
     }
 
-    writeMessageToInterns(app, buffer);
+    writeMessageToInterns(app, temporaryExtern, currentSockets, buffer);
 
     if (strcmp(app->self.id, app->bck.id) == 0) // sou ancora
     {
@@ -253,7 +253,7 @@ void closedExtConnection(AppNode *app, NODE *temporaryExtern, fd_set *currentSoc
         {
             // promove interno a externo e retira-o da lista de internos
             FD_CLR(app->ext.socket.fd, currentSockets);
-            promoteInternToExtern(app);
+            promoteInternToExtern(app, temporaryExtern, currentSockets);
         }
         else // ficou sozinho na rede
         {
@@ -271,7 +271,7 @@ void closedExtConnection(AppNode *app, NODE *temporaryExtern, fd_set *currentSoc
 /**
  * @brief This function reacts to the exit of an intern node
  */
-void closedIntConnection(AppNode *app, fd_set *currentSockets, int i)
+void closedIntConnection(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets, int i)
 {
     char buffer[64] = "\0", id[3];
     FD_CLR(app->interns.intr[i].socket.fd, currentSockets);
@@ -292,13 +292,14 @@ void closedIntConnection(AppNode *app, fd_set *currentSockets, int i)
     if (writeTcp(app->ext.socket) < 0)
     {
         printf("Can't send WITHDRAW msg to extern\n");
+        closedExtConnection(app, temporaryExtern, currentSockets);
     }
     memset(app->ext.socket.buffer, 0, MAX_BUFFER_SIZE);
 
     memmove(&app->interns.intr[i], &app->interns.intr[app->interns.numIntr - 1], sizeof(NODE));
     memset(&app->interns.intr[app->interns.numIntr - 1], 0, sizeof(NODE));
     app->interns.numIntr--;
-    writeMessageToInterns(app, buffer);
+    writeMessageToInterns(app, temporaryExtern, currentSockets, buffer);
 }
 
 /**
@@ -358,7 +359,7 @@ int writeTcp(SOCKET socket)
 /**
  * @brief This functions writes the message received from the buffer into the intern's respective socket buffer
  */
-void writeMessageToInterns(AppNode *app, char *buffer)
+void writeMessageToInterns(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets, char *buffer)
 {
     for (int i = 0; i < app->interns.numIntr; i++)
     {
@@ -366,6 +367,7 @@ void writeMessageToInterns(AppNode *app, char *buffer)
         if (writeTcp(app->interns.intr[i].socket) < 0)
         {
             printf("Can't write to intern\n");
+            closedIntConnection(app, temporaryExtern, currentSockets, i);
         }
         memset(app->interns.intr[i].socket.buffer, 0, MAX_BUFFER_SIZE);
     }
@@ -374,7 +376,7 @@ void writeMessageToInterns(AppNode *app, char *buffer)
 /**
  * @brief This function promotes a node's intern to it's extern, when it's previous extern has left the net
  */
-void promoteInternToExtern(AppNode *app)
+void promoteInternToExtern(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets)
 {
     char buffer[MAX_BUFFER_SIZE] = "\0";
     memmove(&app->ext, &app->interns.intr[0], sizeof(NODE));
@@ -387,10 +389,11 @@ void promoteInternToExtern(AppNode *app)
     if (writeTcp(app->ext.socket) < 0)
     {
         printf("Can't write when I'm trying to connect\n");
+        closedExtConnection(app, temporaryExtern, currentSockets);
     }
 
     memset(app->ext.socket.buffer, 0, MAX_BUFFER_SIZE);
-    writeMessageToInterns(app, buffer);
+    writeMessageToInterns(app, temporaryExtern, currentSockets, buffer);
 }
 
 /**
@@ -412,6 +415,7 @@ void connectToBackup(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets
         if (writeTcp(temporaryExtern->socket) < 0)
         {
             printf("Can't write when I'm trying to connect\n");
+            closedExtConnection(app, temporaryExtern, currentSockets);
         }
         memset(temporaryExtern->socket.buffer, 0, MAX_BUFFER_SIZE);
 
@@ -419,7 +423,7 @@ void connectToBackup(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets
         {
             memset(buffer, 0, 64);
             sprintf(buffer, "EXTERN %s %s %s\n", temporaryExtern->id, temporaryExtern->ip, temporaryExtern->port);
-            writeMessageToInterns(app, buffer);
+            writeMessageToInterns(app, temporaryExtern, currentSockets, buffer);
         }
         //updateExpeditionTable(app, temporaryExtern->id, temporaryExtern->id, temporaryExtern->socket.fd);
     }

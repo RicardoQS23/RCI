@@ -227,7 +227,7 @@ void deleteCommand(AppNode *app, char *name)
 /**
  * @brief Handles 'GET'command
  */
-void getCommand(AppNode *app, char *dest, char *name)
+void getCommand(AppNode *app, NODE *temporaryExtern, fd_set *currentSockets, char *dest, char *name)
 {
     char buffer[MAX_BUFFER_SIZE] = "\0";
     SOCKET expTableSocket;
@@ -239,9 +239,10 @@ void getCommand(AppNode *app, char *dest, char *name)
         if (writeTcp(app->ext.socket) < 0)
         {
             printf("Cant send QUERY msg to extern\n");
+            closedExtConnection(app, temporaryExtern, currentSockets);
         }
         memset(app->ext.socket.buffer, 0, MAX_BUFFER_SIZE);
-        writeMessageToInterns(app, buffer);
+        writeMessageToInterns(app, temporaryExtern, currentSockets, buffer);
     }
     else
     {
@@ -357,7 +358,7 @@ void commandMultiplexer(AppNode *app, NODE *temporaryExtern, enum commands cmd, 
         deleteCommand(app, name);
         break;
     case GET:
-        getCommand(app, dest, name);
+        getCommand(app, temporaryExtern, currentSockets, dest, name);
         break;
     case SHOW_TOPOLOGY:
         showTopologyCommand(app);

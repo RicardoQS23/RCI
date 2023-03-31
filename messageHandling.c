@@ -3,7 +3,7 @@
 /**
  * @brief Handles 'NEW' messages
  */
-int handleNEWmessage(AppNode *app, NodeQueue *queue, int pos, char *token)
+int handleNEWmessage(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, fd_set *currentSockets, int pos, char *token)
 {
     if (sscanf(token, "NEW %s %s %s", queue->queue[pos].id, queue->queue[pos].ip, queue->queue[pos].port) != 3)
     {
@@ -13,7 +13,7 @@ int handleNEWmessage(AppNode *app, NodeQueue *queue, int pos, char *token)
     promoteQueueToIntern(app, queue, pos);
     if (strcmp(app->ext.id, app->self.id) == 0)
     {
-        promoteInternToExtern(app);
+        promoteInternToExtern(app, temporaryExtern, currentSockets);
         return 1;
     }
     else
