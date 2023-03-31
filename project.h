@@ -129,7 +129,7 @@ void commandMultiplexer(AppNode *app, NODE *temporaryExtern, enum commands cmd, 
                                         /*  VALIDATION RELATED FUNCTIONS */
 void init(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, char *regIP, char *regUDP, char **argv, int argc);
 int validateUserInput(AppNode *app, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *fileName);
-int validateCommandLine(char **cmdLine);
+int validateCommandLine(char **cmdLine, int argc);
 int validate_number(char *str);
 int validate_ip(char *ip);
 int compare_cmd(char *cmdLine);

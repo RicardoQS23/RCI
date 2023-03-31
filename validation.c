@@ -5,13 +5,13 @@
  */
 void init(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, char *regIP, char *regUDP, char **argv, int argc)
 {
-    if(argc != 5)
+    if(argc != 5 && argc != 3)
     {
         printf("invalid inputs ./cot [IP] [TCP] [regIP] [regUDP]\n");
         exit(1);
     }
     
-    if (validateCommandLine(argv) < 0)
+    if (validateCommandLine(argv, argc) < 0)
     {
         printf("invalid inputs ./cot [IP] [TCP] [regIP] [regUDP]\n");
         exit(1);
@@ -25,8 +25,16 @@ void init(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, char *regIP, ch
         printf("Couldn't open TCP Server\n");
         exit(1);
     }
+    if(argc == 5)
+    {
     strcpy(regIP, argv[3]);
     strcpy(regUDP, argv[4]);
+    }
+    else
+    {
+    strcpy(regIP, "193.136.138.142");
+    strcpy(regUDP, "59000");
+    }
     temporaryExtern->socket.fd = -1;
 }
 
@@ -198,7 +206,7 @@ int validateUserInput(AppNode *app, enum commands *cmd, char *buffer, char *boot
 /**
  * @brief Command line validation. Returns -1 if the input is invalid
  */
-int validateCommandLine(char **cmdLine)
+int validateCommandLine(char **cmdLine, int argc)
 {
     // Check machineIP
     if (validate_ip(cmdLine[1]) < 0)
@@ -207,11 +215,14 @@ int validateCommandLine(char **cmdLine)
     if (strlen(cmdLine[2]) > 5)
         return -1;
     // Check regIP
-    if (validate_ip(cmdLine[3]) < 0)
-        return -1;
-    // Check regUDP
-    if (strlen(cmdLine[4]) > 5)
-        return -1;
+    if(argc == 5)
+    {
+        if (validate_ip(cmdLine[3]) < 0)
+            return -1;
+        // Check regUDP
+        if (strlen(cmdLine[4]) > 5)
+            return -1;
+    }
     return 0;
 }
 
