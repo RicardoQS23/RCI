@@ -127,7 +127,7 @@ void loadCommand(AppNode *app, char *fileName);
 void commandMultiplexer(AppNode *app, NODE *temporaryExtern, enum commands cmd, fd_set *currentSockets, char *buffer, char *bootIP,char *name, char *dest, char *bootID, char *bootTCP, char *net, char *regIP, char *regUDP, char *fileName);
 
                                         /*  VALIDATION RELATED FUNCTIONS */
-void init(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, char *regIP, char *regUDP, char **argv);
+void init(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, char *regIP, char *regUDP, char **argv, int argc);
 int validateUserInput(AppNode *app, enum commands *cmd, char *buffer, char *bootIP, char *name, char *dest, char *bootID, char *bootTCP, char *net, char *fileName);
 int validateCommandLine(char **cmdLine);
 int validate_number(char *str);

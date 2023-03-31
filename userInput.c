@@ -257,15 +257,46 @@ void getCommand(AppNode *app, char *dest, char *name)
  */
 void showTopologyCommand(AppNode *app)
 {
-    printf("---- Self info ----\n");
-    printf("%s %s %s\n", app->self.id, app->self.ip, app->self.port);
-    printf("---- Extern info ----\n");
-    printf("%s %s %s\n", app->ext.id, app->ext.ip, app->ext.port);
-    printf("---- Backup info ----\n");
-    printf("%s %s %s\n", app->bck.id, app->bck.ip, app->bck.port);
-    printf("---- Interns info ----\n");
-    for (int i = 0; i < app->interns.numIntr; i++)
-        printf("%s %s %s\n", app->interns.intr[i].id, app->interns.intr[i].ip, app->interns.intr[i].port);
+    printf("          |");
+    printf("\033[33m         id    \033[0m     | \033[33m       ip     \033[0m   |  \033[33m      port      \033[0m |");
+    printf("\n");
+
+    for (int i = 0; i < 3; i++)
+    {
+        printf("========================");
+    }
+    printf("\n");
+    int count = 0;
+    for (int j = 0; j < 3 + app->interns.numIntr; j++)
+    {
+        if(j == 0)
+        {
+            printf(" \033[33m self   \033[0m |");
+            printf("         %s         |    %s     |       %s       |", app->self.id, app->self.ip, app->self.port);
+        }
+        else if(j == 1)
+        {
+            printf("\033[33m  ext  \033[0m   |");
+            printf("         %s         |    %s     |       %s       |", app->ext.id, app->ext.ip, app->ext.port);
+        }
+        else if(j == 2)
+        {
+            printf("\033[33m  backup \033[0m |");
+            printf("         %s         |    %s     |       %s       |", app->bck.id, app->bck.ip, app->bck.port);
+        }
+        else
+        {
+            printf("\033[33mintern %02d\033[0m |", count);
+            printf("         %s         |    %s     |       %s       |", app->interns.intr[count].id, app->interns.intr[count].ip, app->interns.intr[count].port);
+            count++;
+        }
+        printf("\n");
+        for (int i = 0; i < 3; i++)
+        {
+            printf("------------------------");
+        }
+        printf("\n");
+    }
 }
 
 /**

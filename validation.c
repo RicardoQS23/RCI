@@ -3,8 +3,14 @@
 /**
  * @brief App initialization
  */
-void init(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, char *regIP, char *regUDP, char **argv)
+void init(AppNode *app, NodeQueue *queue, NODE *temporaryExtern, char *regIP, char *regUDP, char **argv, int argc)
 {
+    if(argc != 5)
+    {
+        printf("invalid inputs ./cot [IP] [TCP] [regIP] [regUDP]\n");
+        exit(1);
+    }
+    
     if (validateCommandLine(argv) < 0)
     {
         printf("invalid inputs ./cot [IP] [TCP] [regIP] [regUDP]\n");

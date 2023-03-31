@@ -16,7 +16,7 @@ int main(int argc, char *argv[]){
     struct timeval timeout;
     enum commands cmd;
 
-    init(&app, &queue, &temporaryExtern, regIP, regUDP, argv);
+    init(&app, &queue, &temporaryExtern, regIP, regUDP, argv, argc);
     FD_ZERO(&currentSockets);
     FD_SET(0, &currentSockets);
 
